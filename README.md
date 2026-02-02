@@ -1,2 +1,2 @@
-# FlixDocs
-Experimenting with AI Generation of docs
+# Flix Tutorial
+AI Generated tutorial for experienced programmers
