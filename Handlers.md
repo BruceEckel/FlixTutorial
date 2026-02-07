@@ -299,6 +299,116 @@ def provideGroceries(f: Unit -> a \ ef): a \ (ef - GroceryList) + {BuyMilk, BuyB
 
 The `GroceryList` handler produces `BuyMilk` and `BuyBread` effects, which must be handled separately. This enables hierarchical effect composition.
 
+## Three Forms of Abstraction
+
+Flix's effect system provides three distinct ways to structure and abstract your code:
+
+### 1. Effect Composition (Structure)
+
+Effects can be built from other effects. A handler for one effect can invoke operations from other effects:
+
+```flix
+eff BuyMilk { def buyMilk(): Unit }
+eff BuyBread { def buyBread(): Unit }
+eff GroceryList { def buyGroceries(): Unit }
+
+def provideGroceries(f: Unit -> a \ ef): a \ (ef - GroceryList) + {BuyMilk, BuyBread} =
+    run { f() } with handler GroceryList {
+        def buyGroceries(_, resume) = {
+            BuyMilk.buyMilk();    // Produces BuyMilk effect
+            BuyBread.buyBread();  // Produces BuyBread effect
+            resume()
+        }
+    }
+```
+
+This defines the *structure* of your effects—what an abstract operation means in terms of more primitive operations. It's analogous to defining interfaces and their relationships.
+
+### 2. Handler Wiring (Configuration)
+
+At program boundaries (typically `main`), you choose which concrete handlers to use:
+
+```flix
+def main(): Unit \ IO =
+    run {
+        doShopping()
+    } with provideGroceries
+      with provideMilk
+      with provideBread
+```
+
+This is *configuration*—selecting implementations for your effects. Different programs (or tests) can wire the same effects differently:
+
+```flix
+// Production: real implementations
+run { app() } with provideRealDatabase with provideRealLogger
+
+// Testing: mock implementations
+run { app() } with provideMockDatabase with provideTestLogger
+```
+
+This is analogous to dependency injection—the same code, different behaviors based on how it's wired.
+
+### 3. Effect Polymorphism (Abstraction)
+
+Functions can be generic over effects, working with any effect set:
+
+```flix
+def twice(f: Unit -> Unit \ ef): Unit \ ef = {
+    f();
+    f()
+}
+
+def retry(n: Int32, f: Unit -> a \ ef): a \ ef = {
+    if (n <= 1) f()
+    else {
+        f()  // In real code, you'd handle failures
+    }
+}
+```
+
+The type variable `ef` represents *any* effect set. These functions don't care what effects `f` performs—they just pass them through. This is *abstraction*—writing code that's generic over effects.
+
+Effect polymorphism is what makes handler extraction work:
+
+```flix
+def provideLogger(f: Unit -> a \ ef): a \ (ef - Logger) + IO = ...
+//                          ^^                ^^
+//                          |                 |
+//                   accepts any effect  transforms it
+```
+
+The `ef` variable captures whatever effects the input has, and the return type expresses how those effects are transformed.
+
+### How They Work Together
+
+These three forms complement each other:
+
+1. **Composition** defines your effect hierarchy (structure)
+2. **Polymorphism** lets you write reusable handlers and utilities (abstraction)
+3. **Wiring** connects everything at the program's entry point (configuration)
+
+A typical program:
+- Uses **composition** to define high-level effects in terms of low-level ones
+- Uses **polymorphism** to write handler functions that work generically
+- Uses **wiring** in `main` to select concrete implementations
+
+```flix
+// Composition: GroceryList uses BuyMilk and BuyBread
+def provideGroceries(f: Unit -> a \ ef): a \ (ef - GroceryList) + {BuyMilk, BuyBread} = ...
+
+// Polymorphism: works with any effect set
+def provideMilk(f: Unit -> a \ ef): a \ (ef - BuyMilk) + IO = ...
+def provideBread(f: Unit -> a \ ef): a \ (ef - BuyBread) + IO = ...
+
+// Wiring: connect everything in main
+def main(): Unit \ IO =
+    run { doShopping() }
+      with provideGroceries   // handles GroceryList, produces BuyMilk/BuyBread
+      with provideMilk        // handles BuyMilk, produces IO
+      with provideBread       // handles BuyBread, produces IO
+```
+
 ## Important Syntax Details
 
 ### Handler Parameter Rules
