@@ -1,4 +1,4 @@
-# Flix: A Tutorial for Experienced Programmers
+# Flix: A Cheat Sheet for Experienced Programmers
 
 Flix is a functional-first programming language for the JVM.
 It combines a Hindley-Milner type system with a polymorphic effect system,
