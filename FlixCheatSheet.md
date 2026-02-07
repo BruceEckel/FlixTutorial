@@ -6,7 +6,7 @@ region-based local mutation, and embedded Datalog constraints.
 If you know Haskell, Scala, Rust, or OCaml, many ideas will feel familiar --
 but Flix combines them in ways that are distinctly its own.
 
-This tutorial covers the core of the language.
+This cheat sheet assumes you have programmed in at least one language.
 It is not exhaustive; see the [official documentation](https://doc.flix.dev/)
 for the full reference.
 
