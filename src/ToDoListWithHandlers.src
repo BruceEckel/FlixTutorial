@@ -1,0 +1,77 @@
+eff BuyMilk {
+    def buyMilk(): Unit
+}
+
+eff BuyBread {
+    def buyBread(): Unit
+}
+
+eff BuyEggs {
+    def buyEggs(): Unit
+}
+
+eff BuyScrews {
+    def buyScrews(): Unit
+}
+
+eff BuyPaint {
+    def buyPaint(): Unit
+}
+
+eff GetGas {
+    def getGas(): Unit
+}
+
+// Effects that rely on other Effects:
+eff GroceryList {
+    def buyGroceries(): Unit
+}
+
+eff HardwareList {
+    def buyHardware(): Unit
+}
+
+// Split work across two people:
+def personOne(): String \ GroceryList =
+    GroceryList.buyGroceries();
+    "Person One tasks completed"
+
+def personTwo(): String \ {HardwareList, GetGas} =
+    HardwareList.buyHardware();
+    GetGas.getGas();
+    "Person Two tasks completed"
+
+// This weekend's errands
+def thisWeekend(): Unit \ {IO, GroceryList, HardwareList, GetGas} =
+    println(personOne());
+    println(personTwo())
+
+def main(): Unit \ IO =
+    run {
+        thisWeekend()
+    } with handler GroceryList {
+        def buyGroceries(_, resume) = {
+            BuyEggs.buyEggs();
+            BuyMilk.buyMilk();
+            BuyBread.buyBread();
+            resume()
+        }
+    } with handler HardwareList {
+        def buyHardware(_, resume) = {
+            BuyScrews.buyScrews();
+            BuyPaint.buyPaint();
+            resume()
+        }
+    } with handler BuyEggs {
+        def buyEggs(_, resume) = { println("Buying eggs"); resume() }
+    } with handler BuyMilk {
+        def buyMilk(_, resume) = { println("Buying milk"); resume() }
+    } with handler BuyBread {
+        def buyBread(_, resume) = { println("Buying bread"); resume() }
+    } with handler BuyScrews {
+        def buyScrews(_, resume) = { println("Buying screws"); resume() }
+    } with handler BuyPaint {
+        def buyPaint(_, resume) = { println("Buying paint"); resume() }
+    } with handler GetGas {
+        def getGas(_, resume) = { println("Getting gas"); resume() }
+    }
