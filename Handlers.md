@@ -183,6 +183,37 @@ def main(): Unit \ IO =
 
 Here `resume(5000)` returns the value 5000 to the code that called `Config.getTimeout()`.
 
+How does the compiler know `resume` takes an `Int32`? It infers the signature from the effect declaration:
+
+```flix
+eff Config {
+    def getTimeout(): Int32  // returns Int32
+}
+```
+
+The rule is:
+- **First handler param** (`_`): matches the operation's *arguments* (here: none, so `Unit`)
+- **`resume` param**: takes the operation's *return type* as its argument (here: `Int32`)
+
+So `resume` has type `Int32 -> Unit`. The effect declaration is the "contract" that tells the compiler what types flow in (operation arguments) and out (via resume).
+
+A more complex example:
+
+```flix
+eff Database {
+    def query(sql: String): List[Row]
+}
+
+with handler Database {
+    def query(sql, resume) = {
+        // sql : String           (from operation's argument)
+        // resume : List[Row] -> ...  (from operation's return type)
+        let results = actualQuery(sql);
+        resume(results)
+    }
+}
+```
+
 ### Step 4: Multiple Effects
 
 Functions can use multiple effects, handled with chained handlers:
