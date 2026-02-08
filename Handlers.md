@@ -550,6 +550,123 @@ mod Main { def helper() = ... }
 mod Utils { def helper() = ... }  // No collision
 ```
 
+## Alternatives: Life Without Handlers
+
+You can achieve similar goals without effect handlers. Here's how the same problem looks with traditional approaches:
+
+### Direct Functions
+
+The simplest approach—just regular functions with IO:
+
+```flix
+def buyMilk(): Unit \ IO = println("Buying milk")
+def buyBread(): Unit \ IO = println("Buying bread")
+
+def buyGroceries(): Unit \ IO = {
+    buyMilk();
+    buyBread()
+}
+
+def main(): Unit \ IO = buyGroceries()
+```
+
+**Tradeoff**: Simple, but no flexibility. Testing requires calling real IO.
+
+### Dependency Injection via Records
+
+Pass implementations as a record parameter:
+
+```flix
+type alias GroceryActions = {
+    buyMilk = Unit -> Unit \ IO,
+    buyBread = Unit -> Unit \ IO
+}
+
+def buyGroceries(actions: GroceryActions): Unit \ IO = {
+    actions#buyMilk();
+    actions#buyBread()
+}
+
+// Production
+def realActions(): GroceryActions = {
+    buyMilk = () -> println("Buying milk"),
+    buyBread = () -> println("Buying bread")
+}
+
+// Test
+def testActions(): GroceryActions = {
+    buyMilk = () -> println("[TEST] milk"),
+    buyBread = () -> println("[TEST] bread")
+}
+
+def main(): Unit \ IO = buyGroceries(realActions())
+```
+
+**Tradeoff**: Flexible and testable, but every function must explicitly pass the record. Parameter bloat accumulates.
+
+### Traits (Interface-Based)
+
+Use traits for polymorphism:
+
+```flix
+trait GroceryStore[s] {
+    pub def buyMilk(store: s): Unit \ IO
+    pub def buyBread(store: s): Unit \ IO
+}
+
+enum RealStore { case RealStore }
+enum TestStore { case TestStore }
+
+instance GroceryStore[RealStore] {
+    pub def buyMilk(_: RealStore): Unit \ IO = println("Buying milk")
+    pub def buyBread(_: RealStore): Unit \ IO = println("Buying bread")
+}
+
+instance GroceryStore[TestStore] {
+    pub def buyMilk(_: TestStore): Unit \ IO = println("[TEST] milk")
+    pub def buyBread(_: TestStore): Unit \ IO = println("[TEST] bread")
+}
+
+def buyGroceries(store: s): Unit \ IO with GroceryStore[s] = {
+    GroceryStore.buyMilk(store);
+    GroceryStore.buyBread(store)
+}
+
+def main(): Unit \ IO = buyGroceries(RealStore.RealStore)
+```
+
+**Tradeoff**: Type-safe and flexible, but requires passing a witness value and more boilerplate.
+
+### Comparison Table
+
+| Approach | Flexibility | Testability | Boilerplate | Composability |
+|----------|-------------|-------------|-------------|---------------|
+| Direct functions | Low | Low | Minimal | N/A |
+| Record injection | High | High | Medium (parameter passing) | Manual |
+| Traits | High | High | Medium (instances) | Via constraints |
+| Effect handlers | High | High | Low | Built-in |
+
+### Why Handlers Win
+
+Effect handlers give you the flexibility of dependency injection without the parameter threading:
+
+```flix
+// Record injection: must pass 'actions' everywhere
+def step1(actions: Actions): Unit \ IO = ...
+def step2(actions: Actions): Unit \ IO = { step1(actions); ... }
+def step3(actions: Actions): Unit \ IO = { step2(actions); ... }
+
+// Effect handlers: effects are implicit
+def step1(): Unit \ Actions = ...
+def step2(): Unit \ Actions = { step1(); ... }
+def step3(): Unit \ Actions = { step2(); ... }
+
+// Provide once at the boundary
+run { step3() } with provideActions
+```
+
+Effect handlers are "dependency injection without the injection"—dependencies are declared in types but provided once at the boundary, not threaded through every call.
+
 ## Summary: Why Use Effect Handlers?
 
 1. **Explicit dependencies**: Function signatures reveal what effects they use
