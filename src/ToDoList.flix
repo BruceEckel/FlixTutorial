@@ -2,10 +2,6 @@ eff BuyMilk {
     def buyMilk(): Unit
 }
 
-eff BuyBread {
-    def buyBread(): Unit
-}
-
 eff BuyEggs {
     def buyEggs(): Unit
 }
@@ -22,11 +18,11 @@ eff GetGas {
     def getGas(): Unit
 }
 
-eff GroceryList {
+eff GroceryStore {
     def buyGroceries(): Unit
 }
 
-eff HardwareList {
+eff HardwareStore {
     def buyHardware(): Unit
 }
 
@@ -34,11 +30,6 @@ eff HardwareList {
 def provideMilk(f: Unit -> a \ ef): a \ (ef - BuyMilk) + IO =
     run { f() } with handler BuyMilk {
         def buyMilk(_, resume) = { println("Buying milk"); resume() }
-    }
-
-def provideBread(f: Unit -> a \ ef): a \ (ef - BuyBread) + IO =
-    run { f() } with handler BuyBread {
-        def buyBread(_, resume) = { println("Buying bread"); resume() }
     }
 
 def provideEggs(f: Unit -> a \ ef): a \ (ef - BuyEggs) + IO =
@@ -61,18 +52,17 @@ def provideGas(f: Unit -> a \ ef): a \ (ef - GetGas) + IO =
         def getGas(_, resume) = { println("Getting gas"); resume() }
     }
 
-def provideGroceries(f: Unit -> a \ ef): a \ (ef - GroceryList) + {BuyEggs, BuyMilk, BuyBread} =
-    run { f() } with handler GroceryList {
+def groceryStore(f: Unit -> a \ ef): a \ (ef - GroceryStore) + {BuyEggs, BuyMilk} =
+    run { f() } with handler GroceryStore {
         def buyGroceries(_, resume) = {
             BuyEggs.buyEggs();
             BuyMilk.buyMilk();
-            BuyBread.buyBread();
             resume()
         }
     }
 
-def provideHardware(f: Unit -> a \ ef): a \ (ef - HardwareList) + {BuyScrews, BuyPaint} =
-    run { f() } with handler HardwareList {
+def hardwareStore(f: Unit -> a \ ef): a \ (ef - HardwareStore) + {BuyScrews, BuyPaint} =
+    run { f() } with handler HardwareStore {
         def buyHardware(_, resume) = {
             BuyScrews.buyScrews();
             BuyPaint.buyPaint();
@@ -81,19 +71,19 @@ def provideHardware(f: Unit -> a \ ef): a \ (ef - HardwareList) + {BuyScrews, Bu
     }
 
 // Split work across two people
-def personOne(): String \ GroceryList = {
-    GroceryList.buyGroceries();
+def personOne(): String \ GroceryStore = {
+    GroceryStore.buyGroceries();
     "Person One tasks completed"
 }
 
-def personTwo(): String \ {HardwareList, GetGas} = {
-    HardwareList.buyHardware();
+def personTwo(): String \ {HardwareStore, GetGas} = {
+    HardwareStore.buyHardware();
     GetGas.getGas();
     "Person Two tasks completed"
 }
 
 // The master errand list:
-def thisWeekend(): Unit \ {IO, GroceryList, HardwareList, GetGas} = {
+def thisWeekend(): Unit \ {IO, GroceryStore, HardwareStore, GetGas} = {
     println(personOne());
     println(personTwo())
 }
@@ -101,11 +91,10 @@ def thisWeekend(): Unit \ {IO, GroceryList, HardwareList, GetGas} = {
 def main(): Unit \ IO =
     run {
         thisWeekend()
-    } with provideGroceries
-      with provideHardware
+    } with groceryStore
+      with hardwareStore
       with provideEggs
       with provideMilk
-      with provideBread
       with provideScrews
       with providePaint
       with provideGas
