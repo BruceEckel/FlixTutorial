@@ -125,10 +125,11 @@ def main(): Unit \ IO =
 Key observations:
 - `eff Greet` declares an effect with one operation
 - `greetUser` uses the effect (note `\ Greet` in its signature)
+- The handler must have the same name as the effect it is handling
 - `main` handles the effect with `run { ... } with handler Greet { ... }`
 - The handler's `def sayHello(_, resume)` has two parameters:
   - `_` for the operation's arguments (none here, so ignored)
-  - `resume` is the continuation—calling it returns to where `sayHello()` was invoked
+  - `resume` is the continuation; calling it returns to where `sayHello()` was invoked
 
 ### Step 2: Effects with Arguments
 
