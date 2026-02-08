@@ -503,6 +503,71 @@ def main(): Unit \ IO =
 
 This won't compile. The type system guarantees that every effect has a handler, preventing "unhandled effect" runtime errors.
 
+### Runtime Handler Selection
+
+Since dispatch is dynamic, you can choose handlers based on runtime values:
+
+```flix
+def verboseLogger(f: Unit -> a \ ef): a \ (ef - Logger) + IO =
+    run { f() } with handler Logger {
+        def log(msg, resume) = { println("[VERBOSE] ${msg}"); resume() }
+    }
+
+def quietLogger(f: Unit -> a \ ef): a \ (ef - Logger) + IO =
+    run { f() } with handler Logger {
+        def log(_, resume) = resume()  // discard logs
+    }
+
+def main(): Unit \ IO =
+    let debugMode = true;  // could come from config, env var, etc.
+    if (debugMode)
+        run { doWork() } with verboseLogger
+    else
+        run { doWork() } with quietLogger
+```
+
+The compiler only requires that *all branches* handle the effects. It doesn't care which handler actually runs. This gives you runtime flexibility while maintaining compile-time safety.
+
+### Dynamic Binding: The Mechanism
+
+Effect handlers use dynamic binding—the connection between an effect operation and its handler is resolved at runtime, not compile time.
+
+When `Logger.log("hello")` executes:
+
+1. Runtime searches up the call stack for `handler Logger { ... }`
+2. Finds the nearest enclosing handler
+3. Invokes that handler's `log` implementation
+4. Handler calls `resume()` to return control
+
+This is similar to other dynamic dispatch mechanisms:
+
+| Mechanism | Lookup |
+|-----------|--------|
+| Virtual methods (OOP) | vtable pointer → method |
+| Exceptions | stack search → nearest catch |
+| Effect handlers | stack search → nearest handler |
+
+The key difference from lexical (static) scoping:
+
+```flix
+def inner(): Unit \ Logger =
+    Logger.log("test")
+
+def outer1(): Unit \ IO =
+    run { inner() } with handler Logger {
+        def log(msg, k) = { println("A: ${msg}"); k() }
+    }
+
+def outer2(): Unit \ IO =
+    run { inner() } with handler Logger {
+        def log(msg, k) = { println("B: ${msg}"); k() }
+    }
+```
+
+`inner()` is defined once but gets different handlers depending on who calls it. The binding isn't determined by where `inner` is written (lexical), but by the runtime call stack (dynamic).
+
+This dynamic indirection is the cost you pay for flexibility. In practice, JVM JIT compilation can often optimize common paths.
+
 ## Naming Conventions
 
 The Flix standard library puts handlers in modules matching the effect name:
