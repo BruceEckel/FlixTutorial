@@ -88,13 +88,13 @@ def thisWeekend(): Unit \ {IO, GroceryStore, HardwareStore, GetGas} = {
     println(personTwo())
 }
 
-def main(): Unit \ IO =
+def todo(): Unit \ IO =
     run {
         thisWeekend()
     } with groceryStore
-      with hardwareStore
-      with provideEggs
-      with provideMilk
-      with provideScrews
-      with providePaint
-      with provideGas
+    with hardwareStore
+    with provideEggs
+    with provideMilk
+    with provideScrews
+    with providePaint
+    with provideGas
