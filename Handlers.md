@@ -76,7 +76,7 @@ Note: `resume` is just a conventional name, not a reserved word. You could call 
 
 ### Separation of Concerns
 
-This separation is powerful. The same `processData` function can be used with different handlers:
+The same `processData` function can be used with different handlers:
 
 ```flix
 // Handler that prints to console
@@ -95,7 +95,7 @@ run { processData(data) } with handler Logger {
 }
 ```
 
-## Tutorial: Building Up Handler Knowledge
+## Handlers Step-by-Step
 
 ### Step 1: A Minimal Effect
 
@@ -124,8 +124,8 @@ def main(): Unit \ IO =
 Key observations:
 - `eff Greet` declares an effect with one operation
 - `greetUser` uses the effect (note `\ Greet` in its signature)
-- The handler must have the same name as the effect it is handling
-- `main` handles the effect with `run { ... } with handler Greet { ... }`
+- The handler must have the same name as the effect it handles
+- `main` provides the handler using the syntax `run { ... } with handler Greet { ... }`
 - The handler's `def sayHello(_, resume)` has two parameters:
   - `_` for the operation's arguments (none here, so ignored)
   - `resume` is the continuation; calling it returns to where `sayHello()` was invoked
@@ -181,6 +181,7 @@ def main(): Unit \ IO =
 ```
 
 Here `resume(5000)` returns the value 5000 to the code that called `Config.getTimeout()`.
+Because `makeRequest` calls `println` the signature includes both `Config` and `IO`.
 
 How does the compiler know `resume` takes an `Int32`? It infers the signature from the effect declaration:
 
@@ -194,7 +195,8 @@ The rule is:
 - **First handler param** (`_`): matches the operation's *arguments* (here: none, so `Unit`)
 - **`resume` param**: takes the operation's *return type* as its argument (here: `Int32`)
 
-So `resume` has type `Int32 -> Unit`. The effect declaration is the "contract" that tells the compiler what types flow in (operation arguments) and out (via resume).
+So `resume` has type `Int32 -> Unit`. 
+The effect declaration is the "contract" that tells the compiler what types flow in (operation arguments) and out (via resume).
 
 A more complex example:
 
