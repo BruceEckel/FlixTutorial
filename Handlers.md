@@ -239,11 +239,10 @@ eff Config {
 
 def initialize(): Unit \ {Logger, Config, IO} = {
     Logger.log("Initializing");
-    if (Config.getDebugMode()) {
+    if (Config.getDebugMode())
         println("Debug mode enabled")
-    } else {
+    else
         ()
-    }
 }
 
 def main(): Unit \ IO =
@@ -280,11 +279,11 @@ def main(): Unit \ IO =
 
 The type signature `(ef - Logger) + IO` means: "Takes any effect set `ef`, removes `Logger` from it, and adds `IO`."
 
-This pattern—handler functions chained with `with`—is the idiomatic "with provisions" style.
+Chaining handler functions using `with` is the idiomatic "with provisions" style.
 
 ### Step 6: Effects with Multiple Operations
 
-An effect can declare several operations:
+An effect can declare more than one operation:
 
 ```flix
 eff Console {
@@ -299,7 +298,7 @@ def interact(): Unit \ Console = {
 }
 ```
 
-The handler must implement ALL operations:
+The single `Console` handler must implement all operations:
 
 ```flix
 def main(): Unit \ IO =
@@ -307,7 +306,7 @@ def main(): Unit \ IO =
         interact()
     } with handler Console {
         def readLine(_, resume) = {
-            // In real code, read from stdin
+            // Code to read from stdin
             resume("Alice")
         }
         def printLine(s, resume) = {
@@ -319,7 +318,7 @@ def main(): Unit \ IO =
 
 ### Step 7: Composite Effects (Effects Using Effects)
 
-One handler can invoke other effects:
+A handler can invoke other effects:
 
 ```flix
 eff BuyMilk { def buyMilk(): Unit }
@@ -339,7 +338,8 @@ def provideGroceries(f: Unit -> a \ ef): a \ (ef - GroceryList) + {BuyMilk, BuyB
     }
 ```
 
-The `GroceryList` handler produces `BuyMilk` and `BuyBread` effects, which must be handled separately. This enables hierarchical effect composition.
+The `GroceryList` handler produces `BuyMilk` and `BuyBread` effects, which must be handled separately.
+This enables hierarchical effect composition.
 
 ## Three Forms of Abstraction
 
@@ -379,7 +379,8 @@ def main(): Unit \ IO =
       with provideBread
 ```
 
-This is *configuration*—selecting implementations for your effects. Different programs (or tests) can wire the same effects differently:
+This is *configuration*—selecting implementations for your effects. 
+Different programs (or tests) can wire the same effects differently:
 
 ```flix
 // Production: real implementations
@@ -389,7 +390,7 @@ run { app() } with provideRealDatabase with provideRealLogger
 run { app() } with provideMockDatabase with provideTestLogger
 ```
 
-This is analogous to dependency injection—the same code, different behaviors based on how it's wired.
+This is analogous to dependency injection; using the same code, producing different behaviors based on how it's wired.
 
 ### 3. Effect Polymorphism (Abstraction)
 
@@ -404,12 +405,14 @@ def twice(f: Unit -> Unit \ ef): Unit \ ef = {
 def retry(n: Int32, f: Unit -> a \ ef): a \ ef = {
     if (n <= 1) f()
     else {
-        f()  // In real code, you'd handle failures
+        f()  // Real code also handles failures
     }
 }
 ```
 
-The type variable `ef` represents *any* effect set. These functions don't care what effects `f` performs—they just pass them through. This is *abstraction*—writing code that's generic over effects.
+The type variable `ef` represents *any* effect set. 
+These functions don't care what effects `f` performs—they just pass them through. 
+This code is generic over effects.
 
 Effect polymorphism is what makes handler extraction work:
 
@@ -477,6 +480,27 @@ def foo(x: Int32): Int32 = x + 1  // annotations required
 
 Handler operations are a special case where Flix infers types from the effect declaration.
 
+### If-Else Expressions
+
+In Flix, `if` is an expression and both branches must have the same type. When the result type is `Unit`, you can omit the `else` clause, but only if the body is enclosed in curly braces:
+
+```flix
+// OK - curly braces allow omitting else
+if (cond) {
+    println("yes")
+}
+
+// ERROR - no braces requires else
+if (cond)
+    println("yes")
+
+// OK - explicit else with Unit value
+if (cond)
+    println("yes")
+else
+    ()
+```
+
 ### Resumable vs Non-Resumable Effects
 
 If an effect operation returns `Void`, it's non-resumable (like an exception):
@@ -501,7 +525,12 @@ run {
 }
 ```
 
-The `_resume` prefix indicates an intentionally unused parameter. Since nothing can produce a `Void` value, the continuation can never be called.
+The underscore prefix in `_resume` indicates an intentionally unused parameter.
+Since nothing can produce a `Void` value, the continuation can never be called.
+
+`Void` is a built-in *uninhabited* type in Flix—no values of type `Void` can ever exist. 
+A function returning `Void` can never return normally. 
+This is similar to `Never` in TypeScript, `Nothing` in Scala, or `!` in Rust.
 
 ### Handler Ordering Matters
 
@@ -519,7 +548,7 @@ run {
 }
 ```
 
-This is dynamic scoping—the nearest enclosing handler wins.
+This is dynamic scoping: the nearest enclosing handler wins.
 
 ## Understanding Handler Dispatch
 
@@ -538,7 +567,7 @@ The compiler ensures all effects are handled before runtime:
 ```flix
 def main(): Unit \ IO =
     run {
-        Logger.log("test")  // ERROR: Logger effect not handled
+        Logger.log("test")  // ERROR: No handler for Logger
     }
 ```
 
@@ -567,11 +596,14 @@ def main(): Unit \ IO =
         run { doWork() } with quietLogger
 ```
 
-The compiler only requires that *all branches* handle the effects. It doesn't care which handler actually runs. This gives you runtime flexibility while maintaining compile-time safety.
+The compiler only requires that *all branches* handle the effects. 
+It doesn't care which handler actually runs. 
+This gives you runtime flexibility while maintaining compile-time safety.
 
 ### Dynamic Binding: The Mechanism
 
-Effect handlers use dynamic binding—the connection between an effect operation and its handler is resolved at runtime, not compile time.
+Effect handlers use dynamic binding. 
+The connection between an effect operation and its handler is resolved at runtime, not compile time.
 
 When `Logger.log("hello")` executes:
 

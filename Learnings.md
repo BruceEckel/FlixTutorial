@@ -130,6 +130,27 @@ List.map(x -> x + 1, List#{1, 2, 3})  // x inferred as Int32
 
 So handler operation definitions are similar to lambdas - they have enough context (the effect declaration) to infer parameter types.
 
+## If-Else Expressions
+
+In Flix, `if` is an expression and both branches must have the same type. When the result type is `Unit`, you can omit the `else` clause, but only if the body is enclosed in curly braces:
+
+```flix
+// OK - curly braces allow omitting else
+if (cond) {
+    println("yes")
+}
+
+// ERROR - no braces requires else
+if (cond)
+    println("yes")
+
+// OK - explicit else with Unit value
+if (cond)
+    println("yes")
+else
+    ()
+```
+
 ## Type Signatures vs Handler Binding
 
 The type signature `(ef - BuyMilk)` describes what the function does (removes `BuyMilk` from the effect set). The actual handler binding is done by `with handler BuyMilk { ... }`.

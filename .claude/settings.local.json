@@ -4,7 +4,8 @@
       "Bash(java -jar flix.jar init:*)",
       "Bash(java -jar flix.jar:*)",
       "Bash(dir:*)",
-      "Bash(java -jar:*)"
+      "Bash(java -jar:*)",
+      "Bash(del C:gitFlixTutorialsrcTest.flix)"
     ]
   }
 }
