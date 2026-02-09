@@ -205,15 +205,24 @@ eff Database {
     def query(sql: String): List[Row]
 }
 
-with handler Database {
-    def query(sql, resume) = {
-        // sql : String           (from operation's argument)
-        // resume : List[Row] -> ...  (from operation's return type)
-        let results = actualQuery(sql);
-        resume(results)
+def fetchUsers(): List[Row] \ Database =
+    Database.query("SELECT * FROM users")
+
+def main(): Unit \ IO =
+    run {
+        let users = fetchUsers();
+        println("Found ${List.length(users)} users")
+    } with handler Database {
+        def query(sql, resume) = {
+            // sql : String               (from operation's argument)
+            // resume : List[Row] -> ...  (from operation's return type)
+            let results = actualQuery(sql);
+            resume(results)
+        }
     }
-}
 ```
+
+Note: `with handler` must always be attached to a `run { ... }` block. There are no standalone or default handlers.
 
 ### Step 4: Multiple Effects
 
