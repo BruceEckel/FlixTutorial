@@ -173,6 +173,37 @@ run {
 } with handler BuyMilk { def buyMilk(_, r) = { println("Whole"); r() } }
 ```
 
+## Default Handlers
+
+Effects can have a default handler that is automatically applied when the effect reaches an entry point (like `main`). This uses the `@DefaultHandler` annotation:
+
+```flix
+eff Greet {
+    def sayHello(name: String): Unit
+}
+
+mod Greet {
+    @DefaultHandler
+    pub def runWithIO(f: Unit -> a \ ef): a \ (ef - Greet) + IO =
+        run { f() } with handler Greet {
+            def sayHello(name, resume) = {
+                println("Hello, ${name}!");
+                resume()
+            }
+        }
+}
+
+// main can use the effect directly - no explicit handler needed!
+def main(): Unit \ Greet =
+    Greet.sayHello("World")
+```
+
+Requirements for default handlers:
+- Must be in the companion module (same name as the effect)
+- Must have `@DefaultHandler` annotation
+- Must have signature: `pub def runWithIO(f: Unit -> a \ ef): a \ (ef - E) + IO`
+- The name `runWithIO` is required (not just convention)
+
 ## Project Structure and Namespaces
 
 Flix compiles all `.flix` files in `src/` as a single compilation unit. All top-level definitions share the root namespace.

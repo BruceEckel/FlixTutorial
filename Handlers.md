@@ -689,6 +689,60 @@ mod Main { def helper() = ... }
 mod Utils { def helper() = ... }  // No collision
 ```
 
+## Default Handlers
+
+While handlers are normally explicit, Flix supports *default handlers* that are automatically applied when an effect reaches an entry point like `main`. This allows code to use effects without explicit `run ... with handler` blocks.
+
+### Defining a Default Handler
+
+Use the `@DefaultHandler` annotation in the effect's companion module:
+
+```flix
+eff Greet {
+    def sayHello(name: String): Unit
+}
+
+mod Greet {
+    @DefaultHandler
+    pub def runWithIO(f: Unit -> a \ ef): a \ (ef - Greet) + IO =
+        run { f() } with handler Greet {
+            def sayHello(name, resume) = {
+                println("Hello, ${name}!");
+                resume()
+            }
+        }
+}
+```
+
+### Using Default Handlers
+
+With a default handler defined, `main` can use the effect directly:
+
+```flix
+def main(): Unit \ Greet =
+    Greet.sayHello("World")  // Works! Default handler applies automatically
+```
+
+The Flix runtime automatically wraps the entry point with the default handler.
+
+### Requirements
+
+For a default handler to work:
+
+1. **Companion module**: Must be in a module with the same name as the effect
+2. **Annotation**: Must have `@DefaultHandler` annotation
+3. **Exact signature**: Must be `pub def runWithIO(f: Unit -> a \ ef): a \ (ef - E) + IO`
+4. **Name**: The function must be named `runWithIO` (not just convention here)
+
+### When to Use Default Handlers
+
+Default handlers are useful for:
+- Effects with a single sensible implementation (like printing to console)
+- Reducing boilerplate in simple programs
+- Library effects that should "just work" out of the box
+
+For effects where you want to control which handler is used (testing, different environments), explicit handlers are preferred.
+
 ## Alternatives: Life Without Handlers
 
 You can achieve similar goals without effect handlers. Here's how the same problem looks with traditional approaches:
