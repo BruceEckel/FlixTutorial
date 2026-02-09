@@ -1,8 +1,7 @@
-# Flix Effect Handlers: A Comprehensive Guide
+# Flix Effect Handlers
 
-## Introduction: The Problem with Side Effects
-
-Every useful program interacts with the world: reading files, printing output, generating random numbers, making network requests. These interactions are called *side effects*, and they create several problems:
+Every useful program interacts with the world: reading files, printing output, generating random numbers, making network requests. 
+These interactions are called *side effects*, and they create several problems:
 
 1. **Hidden dependencies**: A function that reads a config file has an implicit dependency on the file system, but its signature doesn't reveal this.
 
@@ -12,7 +11,7 @@ Every useful program interacts with the world: reading files, printing output, g
 
 4. **Reasoning challenges**: When functions can do anything, it's hard to know what they'll actually do.
 
-### Traditional Solutions and Their Tradeoffs
+## Traditional Solutions
 
 **Exceptions** handle error cases but only propagate upward. They're non-resumable—once thrown, you can't continue from where you left off.
 
@@ -20,7 +19,7 @@ Every useful program interacts with the world: reading files, printing output, g
 
 **Monads** (as in Haskell) provide type-safe effect tracking but require awkward transformers when combining multiple effects, and the order of monad stacking matters.
 
-### Algebraic Effects: A Better Way
+## Algebraic Effects
 
 Algebraic effects, pioneered in languages like Eff and Koka, offer an elegant solution:
 
