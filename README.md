@@ -1,2 +1,4 @@
 # Flix Tutorial
-AI Generated tutorial for experienced programmers
+Tutorials for programmers experienced with other languages.
+
+See https://flix.dev/ for installation instructions.
