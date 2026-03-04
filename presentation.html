@@ -581,6 +581,88 @@ p#x + p#y</pre>
       </div>
     </div>
   </div>
+
+  <!-- Slide 17: Modules & Testing -->
+  <div class="slide">
+    <h2>Modules &amp; Testing</h2>
+    <div class="two-col">
+      <div>
+        <h3>Modules</h3>
+        <pre><span class="kw">mod</span> <span class="ty">Math</span> {
+    <span class="kw">pub def</span> <span class="fn">sum</span>(x: <span class="ty">Int32</span>, y: <span class="ty">Int32</span>): <span class="ty">Int32</span> =
+        x + y
+}
+
+<span class="cm">// Use fully qualified</span>
+<span class="ty">Math</span>.<span class="fn">sum</span>(<span class="num">1</span>, <span class="num">2</span>)
+
+<span class="cm">// Or bring into scope</span>
+<span class="kw">use</span> <span class="ty">Math</span>.sum;
+<span class="fn">sum</span>(<span class="num">1</span>, <span class="num">2</span>)</pre>
+        <p style="color:#a0a0c0; font-size:0.9rem; margin-top:0.5em;">No wildcard imports. Rename: <code>use A.{f => g}</code></p>
+      </div>
+      <div>
+        <h3>Testing with <code>@Test</code></h3>
+        <pre><span class="op">@Test</span>
+<span class="kw">def</span> <span class="fn">testAdd</span>(): <span class="ty">Bool</span> = <span class="fn">add</span>(<span class="num">1</span>, <span class="num">2</span>) == <span class="num">3</span>
+
+<span class="op">@Test</span>
+<span class="kw">def</span> <span class="fn">testNeg</span>(): <span class="ty">Bool</span> = <span class="fn">add</span>(-<span class="num">1</span>, <span class="num">1</span>) == <span class="num">0</span></pre>
+        <pre>$ java -jar flix.jar test</pre>
+        <ul>
+          <li>No arguments, return <code>Bool</code></li>
+          <li><code>true</code> = pass, <code>false</code> = fail</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  <!-- Slide 18: Java Interop -->
+  <div class="slide">
+    <h2>Java Interop</h2>
+    <div class="two-col">
+      <div>
+        <h3>Import, create, call</h3>
+        <pre><span class="kw">import</span> java.io.File
+
+<span class="kw">def</span> <span class="fn">main</span>(): <span class="ty">Unit</span> \ <span class="eff">IO</span> =
+    <span class="kw">let</span> f = <span class="kw">new</span> <span class="ty">File</span>(<span class="str">"foo.txt"</span>);
+    <span class="kw">if</span> (f.exists())
+        <span class="fn">println</span>(<span class="str">"${f.getName()} exists!"</span>)
+    <span class="kw">else</span>
+        <span class="fn">println</span>(<span class="str">"${f.getName()} missing"</span>)</pre>
+        <h3>Pure Java calls</h3>
+        <pre><span class="kw">def</span> <span class="fn">hypotenuse</span>(x: <span class="ty">Float64</span>, y: <span class="ty">Float64</span>): <span class="ty">Float64</span> =
+    <span class="kw">unsafe</span> <span class="ty">Math</span>.<span class="fn">sqrt</span>(<span class="ty">Math</span>.<span class="fn">pow</span>(x, <span class="num">2.0</span>) + <span class="ty">Math</span>.<span class="fn">pow</span>(y, <span class="num">2.0</span>))</pre>
+      </div>
+      <div>
+        <h3>Type mapping</h3>
+        <table>
+          <tr><th>Flix</th><th>Java</th></tr>
+          <tr><td><code>Bool</code></td><td><code>boolean</code></td></tr>
+          <tr><td><code>Int32</code></td><td><code>int</code></td></tr>
+          <tr><td><code>Int64</code></td><td><code>long</code></td></tr>
+          <tr><td><code>Float64</code></td><td><code>double</code></td></tr>
+          <tr><td><code>String</code></td><td><code>String</code></td></tr>
+        </table>
+        <p style="color:#a0a0c0; font-size:0.9rem; margin-top:0.5em;">Use <code>unsafe</code> to call Java from a pure context when you know the method has no side effects.</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- Slide 19: Next Steps -->
+  <div class="slide title">
+    <h1 style="font-size:2.8rem;">Next Steps</h1>
+    <ul style="text-align:left; margin-top:1.5em; max-width:600px;">
+      <li><strong>Documentation:</strong> <code>doc.flix.dev</code></li>
+      <li><strong>API reference:</strong> <code>api.flix.dev</code></li>
+      <li><strong>Standard library:</strong> <code>Option</code>, <code>Result</code>, <code>List</code>, <code>Set</code>, <code>Map</code>, <code>Vector</code>, <code>MutList</code>, <code>MutDeque</code></li>
+      <li><strong>Monadic syntax:</strong> <code>forM</code> and <code>forA</code> for <code>Option</code>, <code>Result</code>, and applicative types</li>
+      <li><strong>IDE support:</strong> VSCode extension, Neovim plugin, Emacs flix-mode</li>
+      <li><strong>This cheat sheet:</strong> <code>FlixCheatSheet.md</code> in this repo</li>
+    </ul>
+    <p style="margin-top:2em; color:#4a4a6a;">Flix · flix.dev · Apache 2.0</p>
+  </div>
 </div>
 <div class="footer">
   <span class="nav-hint">← → Space · Home · End</span>
