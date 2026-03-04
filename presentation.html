@@ -287,6 +287,91 @@ $ java -jar flix.jar test     <span class="cm"># run @Test functions</span></pre
       </div>
     </div>
   </div>
+
+  <!-- Slide 7: Enums -->
+  <div class="slide">
+    <h2>Enums (Algebraic Data Types)</h2>
+    <div class="two-col">
+      <div>
+        <h3>Basic enum</h3>
+        <pre><span class="kw">enum</span> <span class="ty">Shape</span> {
+    <span class="kw">case</span> Circle(<span class="ty">Int32</span>)
+    <span class="kw">case</span> Square(<span class="ty">Int32</span>)
+    <span class="kw">case</span> Rectangle(<span class="ty">Int32</span>, <span class="ty">Int32</span>)
+}</pre>
+        <h3>Shorthand cases</h3>
+        <pre><span class="kw">enum</span> <span class="ty">Weekday</span> {
+    <span class="kw">case</span> Monday, Tuesday, Wednesday
+    <span class="kw">case</span> Thursday, Friday, Saturday, Sunday
+}</pre>
+      </div>
+      <div>
+        <h3>Polymorphic enum</h3>
+        <pre><span class="kw">enum</span> <span class="ty">Bottle</span>[a] {
+    <span class="kw">case</span> Empty,
+    <span class="kw">case</span> Full(a)
+}</pre>
+        <h3>Auto-derive traits</h3>
+        <pre><span class="kw">enum</span> <span class="ty">Color</span> <span class="kw">with</span> <span class="ty">Eq</span>, <span class="ty">Order</span>, <span class="ty">ToString</span> {
+    <span class="kw">case</span> Red, Green, Blue
+}</pre>
+        <p style="color:#a0a0c0; font-size:0.9rem; margin-top:0.5em;">Like <code>deriving</code> in Haskell, <code>#[derive]</code> in Rust</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- Slide 8: Records -->
+  <div class="slide">
+    <h2>Records &amp; Row Polymorphism</h2>
+    <div class="two-col">
+      <div>
+        <h3>Create &amp; access</h3>
+        <pre><span class="kw">let</span> p = { x = <span class="num">1</span>, y = <span class="num">2</span> };
+p#x + p#y</pre>
+        <h3>Update (non-destructive)</h3>
+        <pre><span class="kw">let</span> p2 = { x = <span class="num">3</span> | p };  <span class="cm">// p2 = {x=3, y=2}</span></pre>
+      </div>
+      <div>
+        <h3>Row-polymorphic functions</h3>
+        <pre><span class="kw">def</span> <span class="fn">getX</span>(r: {x = <span class="ty">Int32</span> | s}): <span class="ty">Int32</span> = r#x</pre>
+        <p style="color:#a0a0c0; font-size:0.9rem; margin:0.5em 0;">Accepts any record with <em>at least</em> an <code>x</code> field.</p>
+        <h3>Collections</h3>
+        <pre><span class="kw">let</span> l = <span class="ty">List</span>#{<span class="num">1</span>, <span class="num">2</span>, <span class="num">3</span>};
+<span class="kw">let</span> s = <span class="ty">Set</span>#{<span class="num">1</span>, <span class="num">2</span>, <span class="num">3</span>};
+<span class="kw">let</span> m = <span class="ty">Map</span>#{<span class="num">1</span> => <span class="str">"one"</span>, <span class="num">2</span> => <span class="str">"two"</span>};
+<span class="kw">let</span> l = <span class="num">1</span> :: <span class="num">2</span> :: <span class="num">3</span> :: Nil;</pre>
+      </div>
+    </div>
+  </div>
+
+  <!-- Slide 9: Pattern Matching -->
+  <div class="slide">
+    <h2>Pattern Matching</h2>
+    <div class="two-col">
+      <div>
+        <h3>Exhaustive match (compiler-enforced)</h3>
+        <pre><span class="kw">def</span> <span class="fn">area</span>(s: <span class="ty">Shape</span>): <span class="ty">Int32</span> = <span class="kw">match</span> s {
+    <span class="kw">case</span> <span class="ty">Shape</span>.Circle(r)       => <span class="num">3</span> * r * r
+    <span class="kw">case</span> <span class="ty">Shape</span>.Square(w)       => w * w
+    <span class="kw">case</span> <span class="ty">Shape</span>.Rectangle(h, w) => h * w
+}</pre>
+        <h3>Tuple destructuring</h3>
+        <pre><span class="kw">let</span> (x, y, z) = (<span class="num">1</span>, <span class="num">2</span>, <span class="num">3</span>);</pre>
+      </div>
+      <div>
+        <h3>Match lambdas</h3>
+        <pre><span class="ty">List</span>.map(
+  <span class="kw">match</span> (x, y) -> x + y,
+  (<span class="num">1</span>, <span class="num">1</span>) :: (<span class="num">2</span>, <span class="num">2</span>) :: Nil
+)</pre>
+        <h3>No loops — use higher-order functions</h3>
+        <pre><span class="ty">List</span>.range(<span class="num">1</span>, <span class="num">5</span>)
+  |> <span class="ty">List</span>.map(x -> x * x)
+  |> <span class="fn">println</span></pre>
+        <p style="color:#a0a0c0; font-size:0.9rem; margin-top:0.5em;">No <code>for</code> or <code>while</code>. Use recursion, <code>List.map</code>, <code>foreach</code>, or <code>forM</code>.</p>
+      </div>
+    </div>
+  </div>
 </div>
 <div class="footer">
   <span class="nav-hint">← → Space · Home · End</span>
