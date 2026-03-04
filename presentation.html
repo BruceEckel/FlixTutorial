@@ -517,6 +517,38 @@ p#x + p#y</pre>
       </div>
     </div>
   </div>
+
+  <!-- Slide 15: Regions -->
+  <div class="slide">
+    <h2>Regions</h2>
+    <p style="color:#a0a0c0; margin-bottom:0.5em;">Pure functions can use internal mutation via scoped regions. The compiler prevents mutable data from escaping. Think: Rust's borrow checker applied to a scoped arena, enforced by the type system.</p>
+    <div class="two-col">
+      <div>
+        <h3>Pure sort with internal mutation</h3>
+        <pre><span class="kw">def</span> <span class="fn">sort</span>(l: <span class="ty">List</span>[a]): <span class="ty">List</span>[a]
+    <span class="kw">with</span> <span class="ty">Order</span>[a] =
+    <span class="kw">region</span> rc {
+        <span class="kw">let</span> arr = <span class="ty">List</span>.<span class="fn">toArray</span>(rc, l);
+        <span class="ty">Array</span>.<span class="fn">sort</span>(arr);
+        <span class="ty">Array</span>.<span class="fn">toList</span>(arr)
+    }</pre>
+        <p style="color:#a0a0c0; font-size:0.9rem; margin-top:0.5em;">No effect annotation — this function is <strong>pure</strong>.</p>
+      </div>
+      <div>
+        <h3>Escape prevention (compile error)</h3>
+        <pre><span class="kw">let</span> escaped = <span class="kw">region</span> rc {
+    <span class="ty">Array</span>#{<span class="num">1</span>, <span class="num">2</span>, <span class="num">3</span>} @ rc   <span class="cm">// tied to rc</span>
+};
+<span class="cm">// ERROR: region variable 'rc' escapes its scope</span></pre>
+        <h3>Pattern</h3>
+        <ul>
+          <li>Convert immutable input to mutable structure</li>
+          <li>Mutate freely within <code>region rc { }</code></li>
+          <li>Convert back to immutable output before returning</li>
+        </ul>
+      </div>
+    </div>
+  </div>
 </div>
 <div class="footer">
   <span class="nav-hint">← → Space · Home · End</span>
