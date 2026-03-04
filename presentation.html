@@ -407,6 +407,116 @@ p#x + p#y</pre>
       </div>
     </div>
   </div>
+
+  <!-- Slide 11: Effect System - Pure vs Impure -->
+  <div class="slide">
+    <h2>The Effect System</h2>
+    <p style="color:#a0a0c0; margin-bottom:0.7em;">Flix's most distinctive feature. Three layers.</p>
+    <h3>Layer 1: Pure vs. Impure</h3>
+    <div class="two-col">
+      <div>
+        <pre><span class="cm">// Pure — no effect annotation</span>
+<span class="kw">def</span> <span class="fn">inc</span>(x: <span class="ty">Int32</span>): <span class="ty">Int32</span> = x + <span class="num">1</span>
+
+<span class="cm">// Impure — must declare \ IO</span>
+<span class="kw">def</span> <span class="fn">greet</span>(name: <span class="ty">String</span>): <span class="ty">Unit</span> \ <span class="eff">IO</span> =
+    <span class="fn">println</span>(<span class="str">"Hello ${name}!"</span>)</pre>
+      </div>
+      <div>
+        <ul>
+          <li>Pure functions are <strong>compiler-guaranteed pure</strong> — not by convention</li>
+          <li>Omitting <code>\ IO</code> from an impure function is a <strong>compile error</strong></li>
+          <li>Multiple effects: <code>\ {Eff1, Eff2}</code></li>
+          <li>Explicit empty set: <code>\ { }</code></li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  <!-- Slide 12: Effect Polymorphism -->
+  <div class="slide">
+    <h2>Effect Polymorphism</h2>
+    <p style="color:#a0a0c0; margin-bottom:0.7em;">Higher-order functions propagate their argument's effects automatically.</p>
+    <h3>List.map signature</h3>
+    <pre><span class="kw">def</span> <span class="fn">map</span>(f: a -> b \ <span class="eff">ef</span>, l: <span class="ty">List</span>[a]): <span class="ty">List</span>[b] \ <span class="eff">ef</span></pre>
+    <h3>In practice</h3>
+    <pre><span class="cm">// Pure: ef = { }</span>
+<span class="ty">List</span>.<span class="fn">map</span>(x -> x + <span class="num">1</span>, l)
+
+<span class="cm">// Impure: ef = { IO }</span>
+<span class="ty">List</span>.<span class="fn">map</span>(x -> { <span class="fn">println</span>(x); x + <span class="num">1</span> }, l)</pre>
+    <ul>
+      <li><code>List.map</code> is <strong>pure when given a pure function</strong>, impure when given an impure function</li>
+      <li>The caller never thinks about it — it just works</li>
+    </ul>
+    <h3>Effect set algebra</h3>
+    <table>
+      <tr><th>Operation</th><th>Syntax</th><th>Meaning</th></tr>
+      <tr><td>Union</td><td><code>ef1 + ef2</code></td><td>Has effects of both</td></tr>
+      <tr><td>Intersection</td><td><code>ef1 &amp; ef2</code></td><td>Effects common to both</td></tr>
+      <tr><td>Difference</td><td><code>ef1 - ef2</code></td><td>Effects of ef1 excluding ef2</td></tr>
+    </table>
+  </div>
+
+  <!-- Slide 13: Algebraic Effects -->
+  <div class="slide">
+    <h2>Algebraic Effects &amp; Handlers</h2>
+    <div class="two-col">
+      <div>
+        <h3>Declare an effect</h3>
+        <pre><span class="kw">eff</span> <span class="ty">DivByZero</span> {
+    <span class="kw">def</span> <span class="fn">divByZero</span>(): <span class="ty">Void</span>  <span class="cm">// non-resumable</span>
+}</pre>
+        <h3>Use it</h3>
+        <pre><span class="kw">def</span> <span class="fn">divide</span>(x: <span class="ty">Int32</span>, y: <span class="ty">Int32</span>):
+    <span class="ty">Int32</span> \ <span class="eff">DivByZero</span> =
+    <span class="kw">if</span> (y == <span class="num">0</span>) <span class="ty">DivByZero</span>.<span class="fn">divByZero</span>()
+    <span class="kw">else</span> x / y</pre>
+      </div>
+      <div>
+        <h3>Handle it</h3>
+        <pre><span class="kw">def</span> <span class="fn">main</span>(): <span class="ty">Unit</span> \ <span class="eff">IO</span> =
+    <span class="kw">run</span> {
+        <span class="fn">println</span>(<span class="fn">divide</span>(<span class="num">3</span>, <span class="num">2</span>));
+        <span class="fn">println</span>(<span class="fn">divide</span>(<span class="num">3</span>, <span class="num">0</span>))
+    } <span class="kw">with handler</span> <span class="ty">DivByZero</span> {
+        <span class="kw">def</span> <span class="fn">divByZero</span>(_resume) =
+            <span class="fn">println</span>(<span class="str">"Oops: Division by Zero!"</span>)
+    }</pre>
+        <p style="color:#a0a0c0; font-size:0.9rem; margin-top:0.5em;">Handler eliminates the effect — <code>main</code> has <code>\ IO</code> only.</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- Slide 14: Resumable Effects -->
+  <div class="slide">
+    <h2>Resumable Effects</h2>
+    <p style="color:#a0a0c0; margin-bottom:0.5em;">When an effect returns a non-<code>Void</code> type, the handler can resume the computation. Enables backtracking, cooperative multitasking, dependency injection, and more.</p>
+    <div class="two-col">
+      <div>
+        <pre><span class="kw">eff</span> <span class="ty">Ask</span> { <span class="kw">def</span> <span class="fn">ask</span>(): <span class="ty">String</span> }
+<span class="kw">eff</span> <span class="ty">Say</span> { <span class="kw">def</span> <span class="fn">say</span>(s: <span class="ty">String</span>): <span class="ty">Unit</span> }
+
+<span class="kw">def</span> <span class="fn">greeting</span>(): <span class="ty">Unit</span> \ {<span class="eff">Ask</span>, <span class="eff">Say</span>} =
+    <span class="kw">let</span> name = <span class="ty">Ask</span>.<span class="fn">ask</span>();
+    <span class="ty">Say</span>.<span class="fn">say</span>(<span class="str">"Hello Mr. ${name}"</span>)</pre>
+      </div>
+      <div>
+        <pre><span class="kw">def</span> <span class="fn">main</span>(): <span class="ty">Unit</span> \ <span class="eff">IO</span> =
+    <span class="kw">run</span> {
+        <span class="fn">greeting</span>()
+    } <span class="kw">with handler</span> <span class="ty">Ask</span> {
+        <span class="kw">def</span> <span class="fn">ask</span>(_, resume) =
+            <span class="fn">resume</span>(<span class="str">"Bond, James Bond"</span>)
+    } <span class="kw">with handler</span> <span class="ty">Say</span> {
+        <span class="kw">def</span> <span class="fn">say</span>(s, resume) =
+            { <span class="fn">println</span>(s); <span class="fn">resume</span>() }
+    }
+<span class="cm">// Output: Hello Mr. Bond, James Bond</span></pre>
+        <p style="color:#a0a0c0; font-size:0.9rem; margin-top:0.5em;">A handler can call <code>resume</code> multiple times — enabling backtracking search.</p>
+      </div>
+    </div>
+  </div>
 </div>
 <div class="footer">
   <span class="nav-hint">← → Space · Home · End</span>
