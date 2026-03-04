@@ -202,6 +202,35 @@ tr:nth-child(even) td { background: #16213e44; }
       inferred within bodies.
     </p>
   </div>
+
+  <!-- Slide 3: Getting Started -->
+  <div class="slide">
+    <h2>Getting Started</h2>
+    <h3>Prerequisites</h3>
+    <ul><li>Java 21 or later</li></ul>
+    <h3>Initialize a project</h3>
+    <pre>$ mkdir my-project &amp;&amp; cd my-project
+$ java -jar flix.jar init</pre>
+    <p style="color:#a0a0c0; margin:0.5em 0;">Creates: <code>flix.toml</code>, <code>src/Main.flix</code>, <code>test/</code></p>
+    <h3>Compiler commands</h3>
+    <pre>$ java -jar flix.jar run      <span class="cm"># compile and run</span>
+$ java -jar flix.jar check    <span class="cm"># type-check only</span>
+$ java -jar flix.jar test     <span class="cm"># run @Test functions</span></pre>
+  </div>
+
+  <!-- Slide 4: Hello World -->
+  <div class="slide">
+    <h2>Hello World</h2>
+    <pre><span class="kw">def</span> <span class="fn">main</span>(): <span class="ty">Unit</span> \ <span class="eff">IO</span> =
+    <span class="fn">println</span>(<span class="str">"Hello World!"</span>)</pre>
+    <ul>
+      <li><code>main</code> takes <strong>no parameters</strong> — use <code>Environment.getArgs()</code> for CLI args</li>
+      <li>Return type is <code>Unit</code> (like <code>void</code>)</li>
+      <li><code>\ IO</code> is an <strong>effect annotation</strong> — part of the type, not a comment</li>
+      <li>Pure functions <strong>omit</strong> the effect annotation entirely</li>
+    </ul>
+    <pre><span class="kw">def</span> <span class="fn">inc</span>(x: <span class="ty">Int32</span>): <span class="ty">Int32</span> = x + <span class="num">1</span>   <span class="cm">// pure — no \ IO</span></pre>
+  </div>
 </div>
 <div class="footer">
   <span class="nav-hint">← → Space · Home · End</span>
