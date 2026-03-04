@@ -231,6 +231,62 @@ $ java -jar flix.jar test     <span class="cm"># run @Test functions</span></pre
     </ul>
     <pre><span class="kw">def</span> <span class="fn">inc</span>(x: <span class="ty">Int32</span>): <span class="ty">Int32</span> = x + <span class="num">1</span>   <span class="cm">// pure — no \ IO</span></pre>
   </div>
+
+  <!-- Slide 5: Types & Variables -->
+  <div class="slide">
+    <h2>Types &amp; Variables</h2>
+    <div class="two-col">
+      <div>
+        <table>
+          <tr><th>Type</th><th>Literal</th></tr>
+          <tr><td><code>Bool</code></td><td><code>true</code>, <code>false</code></td></tr>
+          <tr><td><code>Int32</code></td><td><code>42</code> (default int)</td></tr>
+          <tr><td><code>Int64</code></td><td><code>42i64</code></td></tr>
+          <tr><td><code>Float64</code></td><td><code>3.14</code> (default float)</td></tr>
+          <tr><td><code>String</code></td><td><code>"hello"</code></td></tr>
+          <tr><td><code>BigInt</code></td><td><code>42ii</code></td></tr>
+          <tr><td><code>Unit</code></td><td><code>()</code></td></tr>
+        </table>
+      </div>
+      <div>
+        <h3>Let bindings (immutable)</h3>
+        <pre><span class="kw">let</span> x = <span class="num">42</span>;
+<span class="kw">let</span> y = x + <span class="num">1</span>;</pre>
+        <p style="color:#a0a0c0; font-size:0.9rem; margin:0.5em 0;">All variables must be used. Prefix unused with <code>_</code>.</p>
+        <h3>String interpolation</h3>
+        <pre><span class="kw">let</span> name = <span class="str">"World"</span>;
+<span class="str">"Hello ${name}!"</span></pre>
+      </div>
+    </div>
+  </div>
+
+  <!-- Slide 6: Functions -->
+  <div class="slide">
+    <h2>Functions</h2>
+    <div class="two-col">
+      <div>
+        <h3>Definition (curried by default)</h3>
+        <pre><span class="kw">def</span> <span class="fn">add</span>(x: <span class="ty">Int32</span>, y: <span class="ty">Int32</span>): <span class="ty">Int32</span> = x + y
+
+<span class="kw">def</span> <span class="fn">main</span>(): <span class="ty">Unit</span> \ <span class="eff">IO</span> =
+    <span class="kw">let</span> inc = <span class="fn">add</span>(<span class="num">1</span>);  <span class="cm">// partial application</span>
+    <span class="fn">inc</span>(<span class="num">42</span>) |> <span class="fn">println</span></pre>
+        <h3>Lambdas</h3>
+        <pre><span class="kw">let</span> inc = x -> x + <span class="num">1</span>;
+<span class="kw">let</span> add = (x, y) -> x + y;</pre>
+      </div>
+      <div>
+        <h3>Pipeline operator <code>|&gt;</code></h3>
+        <pre><span class="str">"Hello World"</span>
+  |> <span class="ty">String</span>.toUpperCase
+  |> <span class="fn">println</span></pre>
+        <h3>Function composition <code>&gt;&gt;</code></h3>
+        <pre><span class="kw">let</span> h = f >> g  <span class="cm">// h(x) = g(f(x))</span></pre>
+        <h3>Infix with backticks</h3>
+        <pre><span class="num">123</span> `<span class="ty">Int32</span>.max` <span class="num">456</span></pre>
+      </div>
+    </div>
+  </div>
 </div>
 <div class="footer">
   <span class="nav-hint">← → Space · Home · End</span>
