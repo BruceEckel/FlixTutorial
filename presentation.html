@@ -372,6 +372,41 @@ p#x + p#y</pre>
       </div>
     </div>
   </div>
+
+  <!-- Slide 10: Traits -->
+  <div class="slide">
+    <h2>Traits (Type Classes)</h2>
+    <div class="two-col">
+      <div>
+        <h3>Declaring a trait</h3>
+        <pre><span class="kw">trait</span> <span class="ty">Equatable</span>[t] {
+    <span class="kw">pub def</span> <span class="fn">equals</span>(x: t, y: t): <span class="ty">Bool</span>
+}</pre>
+        <h3>Instance with constraint</h3>
+        <pre><span class="kw">instance</span> <span class="ty">Equatable</span>[<span class="ty">Option</span>[t]]
+    <span class="kw">with</span> <span class="ty">Equatable</span>[t] {
+    <span class="kw">pub def</span> <span class="fn">equals</span>(x, y) = <span class="kw">match</span> (x, y) {
+        <span class="kw">case</span> (None, None)         => <span class="kw">true</span>
+        <span class="kw">case</span> (Some(a), Some(b)) => <span class="ty">Equatable</span>.<span class="fn">equals</span>(a, b)
+        <span class="kw">case</span> _                    => <span class="kw">false</span>
+    }
+}</pre>
+      </div>
+      <div>
+        <h3>Constrained function</h3>
+        <pre><span class="kw">def</span> <span class="fn">memberOf</span>(x: t, l: <span class="ty">List</span>[t]): <span class="ty">Bool</span>
+    <span class="kw">with</span> <span class="ty">Equatable</span>[t] = ...</pre>
+        <h3>Standard library traits</h3>
+        <table>
+          <tr><th>Trait</th><th>Purpose</th></tr>
+          <tr><td><code>Eq</code></td><td>Equality (<code>==</code>, <code>!=</code>)</td></tr>
+          <tr><td><code>Order</code></td><td>Ordering (<code>&lt;</code>, <code>compare</code>)</td></tr>
+          <tr><td><code>ToString</code></td><td>String conversion</td></tr>
+          <tr><td><code>Hash</code></td><td>Hashing</td></tr>
+        </table>
+      </div>
+    </div>
+  </div>
 </div>
 <div class="footer">
   <span class="nav-hint">← → Space · Home · End</span>
