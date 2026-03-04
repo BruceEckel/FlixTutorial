@@ -436,11 +436,11 @@ p#x + p#y</pre>
   <!-- Slide 12: Effect Polymorphism -->
   <div class="slide">
     <h2>Effect Polymorphism</h2>
-    <p style="color:#a0a0c0; margin-bottom:0.7em;">Higher-order functions propagate their argument's effects automatically.</p>
-    <h3>List.map signature</h3>
-    <pre><span class="kw">def</span> <span class="fn">map</span>(f: a -> b \ <span class="eff">ef</span>, l: <span class="ty">List</span>[a]): <span class="ty">List</span>[b] \ <span class="eff">ef</span></pre>
-    <h3>In practice</h3>
-    <pre><span class="cm">// Pure: ef = { }</span>
+    <p style="color:#a0a0c0; margin-bottom:0.5em;">Higher-order functions propagate their argument's effects automatically.</p>
+    <h3 style="margin:0.4em 0 0.2em">List.map signature</h3>
+    <pre style="font-size:0.85rem"><span class="kw">def</span> <span class="fn">map</span>(f: a -> b \ <span class="eff">ef</span>, l: <span class="ty">List</span>[a]): <span class="ty">List</span>[b] \ <span class="eff">ef</span></pre>
+    <h3 style="margin:0.4em 0 0.2em">In practice</h3>
+    <pre style="font-size:0.85rem"><span class="cm">// Pure: ef = { }</span>
 <span class="ty">List</span>.<span class="fn">map</span>(x -> x + <span class="num">1</span>, l)
 
 <span class="cm">// Impure: ef = { IO }</span>
@@ -449,7 +449,7 @@ p#x + p#y</pre>
       <li><code>List.map</code> is <strong>pure when given a pure function</strong>, impure when given an impure function</li>
       <li>The caller never thinks about it — it just works</li>
     </ul>
-    <h3>Effect set algebra</h3>
+    <h3 style="margin:0.4em 0 0.2em">Effect set algebra</h3>
     <table>
       <tr><th>Operation</th><th>Syntax</th><th>Meaning</th></tr>
       <tr><td>Union</td><td><code>ef1 + ef2</code></td><td>Has effects of both</td></tr>
@@ -494,7 +494,7 @@ p#x + p#y</pre>
     <p style="color:#a0a0c0; margin-bottom:0.5em;">When an effect returns a non-<code>Void</code> type, the handler can resume the computation. Enables backtracking, cooperative multitasking, dependency injection, and more.</p>
     <div class="two-col">
       <div>
-        <pre><span class="kw">eff</span> <span class="ty">Ask</span> { <span class="kw">def</span> <span class="fn">ask</span>(): <span class="ty">String</span> }
+        <pre style="font-size:0.85rem"><span class="kw">eff</span> <span class="ty">Ask</span> { <span class="kw">def</span> <span class="fn">ask</span>(): <span class="ty">String</span> }
 <span class="kw">eff</span> <span class="ty">Say</span> { <span class="kw">def</span> <span class="fn">say</span>(s: <span class="ty">String</span>): <span class="ty">Unit</span> }
 
 <span class="kw">def</span> <span class="fn">greeting</span>(): <span class="ty">Unit</span> \ {<span class="eff">Ask</span>, <span class="eff">Say</span>} =
@@ -502,7 +502,7 @@ p#x + p#y</pre>
     <span class="ty">Say</span>.<span class="fn">say</span>(<span class="str">"Hello Mr. ${name}"</span>)</pre>
       </div>
       <div>
-        <pre><span class="kw">def</span> <span class="fn">main</span>(): <span class="ty">Unit</span> \ <span class="eff">IO</span> =
+        <pre style="font-size:0.85rem"><span class="kw">def</span> <span class="fn">main</span>(): <span class="ty">Unit</span> \ <span class="eff">IO</span> =
     <span class="kw">run</span> {
         <span class="fn">greeting</span>()
     } <span class="kw">with handler</span> <span class="ty">Ask</span> {
@@ -666,7 +666,7 @@ p#x + p#y</pre>
 </div>
 <div class="footer">
   <span class="nav-hint">← → Space · Home · End</span>
-  <span class="counter" id="counter">1 / 1</span>
+  <span class="counter" id="counter">1 / 19</span>
 </div>
 <script>
 const slides = Array.from(document.querySelectorAll('.slide'));
