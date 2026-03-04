@@ -1,3 +1,25 @@
+# Flix HTML Slideshow Presentation Implementation Plan
+
+> **For Claude:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task.
+
+**Goal:** Build a self-contained single-file HTML slideshow (`presentation.html`) that introduces Flix to experienced programmers, covering all 10 sections of the cheat sheet.
+
+**Architecture:** One HTML file with all CSS and JavaScript inline. 19 slides driven by a minimal hand-rolled slide engine (~200 lines total). Keyboard navigation (←/→/Space/Home/End), fade transitions, slide counter, and a dark terminal-style code theme. No external dependencies.
+
+**Tech Stack:** Vanilla HTML5, CSS3, JavaScript (ES6). No build tools, no CDN, no frameworks.
+
+---
+
+### Task 1: Scaffold the HTML shell and slide engine
+
+**Files:**
+- Create: `presentation.html`
+
+**Step 1: Create the file with the base HTML, CSS, and JavaScript slide engine**
+
+Write `presentation.html` with:
+
+```html
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -58,8 +80,20 @@ body {
   color: #a0a0c0;
 }
 
+/* Section title slides */
+.slide.section-title {
+  background: #16213e;
+  align-items: center;
+  text-align: center;
+}
+
+.slide.section-title h2 {
+  font-size: 2.8rem;
+  color: #e94560;
+}
+
 /* Content slides */
-.slide h2 {
+h2 {
   font-size: 2rem;
   color: #e94560;
   margin-bottom: 0.6em;
@@ -68,7 +102,7 @@ body {
   width: 100%;
 }
 
-.slide h3 {
+h3 {
   font-size: 1.2rem;
   color: #a0a0c0;
   margin: 0.8em 0 0.3em;
@@ -112,8 +146,7 @@ pre {
   border-radius: 6px;
   padding: 1em 1.2em;
   margin: 0.7em 0;
-  overflow: visible;
-  white-space: pre-wrap;
+  overflow-x: auto;
   font-family: 'Cascadia Code', 'Fira Code', 'Consolas', monospace;
   font-size: 0.95rem;
   line-height: 1.6;
@@ -121,14 +154,14 @@ pre {
 }
 
 /* Syntax highlighting via spans */
-.kw  { color: #ff79c6; }
-.ty  { color: #8be9fd; }
-.fn  { color: #50fa7b; }
-.str { color: #f1fa8c; }
-.cm  { color: #6272a4; font-style: italic; }
-.num { color: #bd93f9; }
-.op  { color: #ff79c6; }
-.eff { color: #ffb86c; }
+.kw  { color: #ff79c6; }   /* keywords */
+.ty  { color: #8be9fd; }   /* types */
+.fn  { color: #50fa7b; }   /* function names */
+.str { color: #f1fa8c; }   /* strings */
+.cm  { color: #6272a4; font-style: italic; }  /* comments */
+.num { color: #bd93f9; }   /* numbers */
+.op  { color: #ff79c6; }   /* operators */
+.eff { color: #ffb86c; }   /* effects */
 
 table {
   border-collapse: collapse;
@@ -171,11 +204,72 @@ tr:nth-child(even) td { background: #16213e44; }
 }
 
 .counter { font-variant-numeric: tabular-nums; }
+
 .nav-hint { color: #4a4a6a; }
 </style>
 </head>
 <body>
+
 <div class="deck" id="deck">
+  <!-- SLIDES GO HERE -->
+</div>
+
+<div class="footer">
+  <span class="nav-hint">← → Space · Home · End</span>
+  <span class="counter" id="counter">1 / 1</span>
+</div>
+
+<script>
+const slides = Array.from(document.querySelectorAll('.slide'));
+let current = 0;
+
+function show(n) {
+  slides[current].classList.remove('active');
+  current = Math.max(0, Math.min(n, slides.length - 1));
+  slides[current].classList.add('active');
+  document.getElementById('counter').textContent = `${current + 1} / ${slides.length}`;
+}
+
+document.addEventListener('keydown', e => {
+  if (e.key === 'ArrowRight' || e.key === ' ')  show(current + 1);
+  if (e.key === 'ArrowLeft')                     show(current - 1);
+  if (e.key === 'Home')                          show(0);
+  if (e.key === 'End')                           show(slides.length - 1);
+});
+
+// Touch support
+let touchX = 0;
+document.addEventListener('touchstart', e => touchX = e.touches[0].clientX);
+document.addEventListener('touchend', e => {
+  const dx = e.changedTouches[0].clientX - touchX;
+  if (Math.abs(dx) > 50) show(current + (dx < 0 ? 1 : -1));
+});
+
+show(0);
+</script>
+</body>
+</html>
+```
+
+**Step 2: Open the file in a browser and verify the engine works** (no slides yet — just the dark page with footer showing "1 / 1").
+
+**Step 3: Commit**
+
+```bash
+git add presentation.html
+git commit -m "feat: scaffold HTML slideshow engine with keyboard/touch nav"
+```
+
+---
+
+### Task 2: Add title slide and "What is Flix?" slides (slides 1–2)
+
+**Files:**
+- Modify: `presentation.html` — replace `<!-- SLIDES GO HERE -->` with the first two slides
+
+**Step 1: Add slide 1 (title) inside `<div class="deck">`**
+
+```html
   <!-- Slide 1: Title -->
   <div class="slide title active">
     <h1>Introducing Flix</h1>
@@ -184,7 +278,11 @@ tr:nth-child(even) td { background: #16213e44; }
       For programmers experienced with other languages
     </p>
   </div>
+```
 
+**Step 2: Add slide 2 (What is Flix?) after slide 1**
+
+```html
   <!-- Slide 2: What is Flix? -->
   <div class="slide">
     <h2>What is Flix?</h2>
@@ -203,7 +301,27 @@ tr:nth-child(even) td { background: #16213e44; }
       inferred within bodies.
     </p>
   </div>
+```
 
+**Step 3: Reload browser, verify 2 slides and navigation works.**
+
+**Step 4: Commit**
+
+```bash
+git add presentation.html
+git commit -m "feat: add title and What is Flix slides"
+```
+
+---
+
+### Task 3: Add Getting Started slides (slides 3–4)
+
+**Files:**
+- Modify: `presentation.html` — append after slide 2
+
+**Step 1: Add slide 3 (setup)**
+
+```html
   <!-- Slide 3: Getting Started -->
   <div class="slide">
     <h2>Getting Started</h2>
@@ -218,7 +336,11 @@ $ java -jar flix.jar init</pre>
 $ java -jar flix.jar check    <span class="cm"># type-check only</span>
 $ java -jar flix.jar test     <span class="cm"># run @Test functions</span></pre>
   </div>
+```
 
+**Step 2: Add slide 4 (Hello World)**
+
+```html
   <!-- Slide 4: Hello World -->
   <div class="slide">
     <h2>Hello World</h2>
@@ -232,7 +354,25 @@ $ java -jar flix.jar test     <span class="cm"># run @Test functions</span></pre
     </ul>
     <pre><span class="kw">def</span> <span class="fn">inc</span>(x: <span class="ty">Int32</span>): <span class="ty">Int32</span> = x + <span class="num">1</span>   <span class="cm">// pure — no \ IO</span></pre>
   </div>
+```
 
+**Step 3: Commit**
+
+```bash
+git add presentation.html
+git commit -m "feat: add Getting Started and Hello World slides"
+```
+
+---
+
+### Task 4: Add Types & Functions slides (slides 5–6)
+
+**Files:**
+- Modify: `presentation.html` — append after slide 4
+
+**Step 1: Add slide 5 (Types & Variables)**
+
+```html
   <!-- Slide 5: Types & Variables -->
   <div class="slide">
     <h2>Types &amp; Variables</h2>
@@ -260,7 +400,11 @@ $ java -jar flix.jar test     <span class="cm"># run @Test functions</span></pre
       </div>
     </div>
   </div>
+```
 
+**Step 2: Add slide 6 (Functions)**
+
+```html
   <!-- Slide 6: Functions -->
   <div class="slide">
     <h2>Functions</h2>
@@ -288,7 +432,25 @@ $ java -jar flix.jar test     <span class="cm"># run @Test functions</span></pre
       </div>
     </div>
   </div>
+```
 
+**Step 3: Commit**
+
+```bash
+git add presentation.html
+git commit -m "feat: add Types and Functions slides"
+```
+
+---
+
+### Task 5: Add Data Types slides (slides 7–9)
+
+**Files:**
+- Modify: `presentation.html` — append after slide 6
+
+**Step 1: Add slide 7 (Enums / ADTs)**
+
+```html
   <!-- Slide 7: Enums -->
   <div class="slide">
     <h2>Enums (Algebraic Data Types)</h2>
@@ -320,7 +482,11 @@ $ java -jar flix.jar test     <span class="cm"># run @Test functions</span></pre
       </div>
     </div>
   </div>
+```
 
+**Step 2: Add slide 8 (Records)**
+
+```html
   <!-- Slide 8: Records -->
   <div class="slide">
     <h2>Records &amp; Row Polymorphism</h2>
@@ -344,7 +510,11 @@ p#x + p#y</pre>
       </div>
     </div>
   </div>
+```
 
+**Step 3: Add slide 9 (Pattern Matching)**
+
+```html
   <!-- Slide 9: Pattern Matching -->
   <div class="slide">
     <h2>Pattern Matching</h2>
@@ -373,7 +543,25 @@ p#x + p#y</pre>
       </div>
     </div>
   </div>
+```
 
+**Step 4: Commit**
+
+```bash
+git add presentation.html
+git commit -m "feat: add Enums, Records, and Pattern Matching slides"
+```
+
+---
+
+### Task 6: Add Traits slide (slide 10)
+
+**Files:**
+- Modify: `presentation.html` — append after slide 9
+
+**Step 1: Add slide 10 (Traits)**
+
+```html
   <!-- Slide 10: Traits -->
   <div class="slide">
     <h2>Traits (Type Classes)</h2>
@@ -408,7 +596,25 @@ p#x + p#y</pre>
       </div>
     </div>
   </div>
+```
 
+**Step 2: Commit**
+
+```bash
+git add presentation.html
+git commit -m "feat: add Traits slide"
+```
+
+---
+
+### Task 7: Add Effect System slides (slides 11–14)
+
+**Files:**
+- Modify: `presentation.html` — append after slide 10
+
+**Step 1: Add slide 11 (Pure vs. Impure)**
+
+```html
   <!-- Slide 11: Effect System - Pure vs Impure -->
   <div class="slide">
     <h2>The Effect System</h2>
@@ -433,15 +639,19 @@ p#x + p#y</pre>
       </div>
     </div>
   </div>
+```
 
+**Step 2: Add slide 12 (Effect Polymorphism)**
+
+```html
   <!-- Slide 12: Effect Polymorphism -->
   <div class="slide">
     <h2>Effect Polymorphism</h2>
-    <p style="color:#a0a0c0; margin-bottom:0.5em;">Higher-order functions propagate their argument's effects automatically.</p>
-    <h3 style="margin:0.4em 0 0.2em">List.map signature</h3>
-    <pre style="font-size:0.85rem"><span class="kw">def</span> <span class="fn">map</span>(f: a -> b \ <span class="eff">ef</span>, l: <span class="ty">List</span>[a]): <span class="ty">List</span>[b] \ <span class="eff">ef</span></pre>
-    <h3 style="margin:0.4em 0 0.2em">In practice</h3>
-    <pre style="font-size:0.85rem"><span class="cm">// Pure: ef = { }</span>
+    <p style="color:#a0a0c0; margin-bottom:0.7em;">Higher-order functions propagate their argument's effects automatically.</p>
+    <h3>List.map signature</h3>
+    <pre><span class="kw">def</span> <span class="fn">map</span>(f: a -> b \ <span class="eff">ef</span>, l: <span class="ty">List</span>[a]): <span class="ty">List</span>[b] \ <span class="eff">ef</span></pre>
+    <h3>In practice</h3>
+    <pre><span class="cm">// Pure: ef = { }</span>
 <span class="ty">List</span>.<span class="fn">map</span>(x -> x + <span class="num">1</span>, l)
 
 <span class="cm">// Impure: ef = { IO }</span>
@@ -450,7 +660,7 @@ p#x + p#y</pre>
       <li><code>List.map</code> is <strong>pure when given a pure function</strong>, impure when given an impure function</li>
       <li>The caller never thinks about it — it just works</li>
     </ul>
-    <h3 style="margin:0.4em 0 0.2em">Effect set algebra</h3>
+    <h3>Effect set algebra</h3>
     <table>
       <tr><th>Operation</th><th>Syntax</th><th>Meaning</th></tr>
       <tr><td>Union</td><td><code>ef1 + ef2</code></td><td>Has effects of both</td></tr>
@@ -458,7 +668,11 @@ p#x + p#y</pre>
       <tr><td>Difference</td><td><code>ef1 - ef2</code></td><td>Effects of ef1 excluding ef2</td></tr>
     </table>
   </div>
+```
 
+**Step 3: Add slide 13 (Algebraic Effects & Handlers)**
+
+```html
   <!-- Slide 13: Algebraic Effects -->
   <div class="slide">
     <h2>Algebraic Effects &amp; Handlers</h2>
@@ -488,14 +702,18 @@ p#x + p#y</pre>
       </div>
     </div>
   </div>
+```
 
+**Step 4: Add slide 14 (Resumable Effects)**
+
+```html
   <!-- Slide 14: Resumable Effects -->
   <div class="slide">
     <h2>Resumable Effects</h2>
     <p style="color:#a0a0c0; margin-bottom:0.5em;">When an effect returns a non-<code>Void</code> type, the handler can resume the computation. Enables backtracking, cooperative multitasking, dependency injection, and more.</p>
     <div class="two-col">
       <div>
-        <pre style="font-size:0.85rem"><span class="kw">eff</span> <span class="ty">Ask</span> { <span class="kw">def</span> <span class="fn">ask</span>(): <span class="ty">String</span> }
+        <pre><span class="kw">eff</span> <span class="ty">Ask</span> { <span class="kw">def</span> <span class="fn">ask</span>(): <span class="ty">String</span> }
 <span class="kw">eff</span> <span class="ty">Say</span> { <span class="kw">def</span> <span class="fn">say</span>(s: <span class="ty">String</span>): <span class="ty">Unit</span> }
 
 <span class="kw">def</span> <span class="fn">greeting</span>(): <span class="ty">Unit</span> \ {<span class="eff">Ask</span>, <span class="eff">Say</span>} =
@@ -503,7 +721,7 @@ p#x + p#y</pre>
     <span class="ty">Say</span>.<span class="fn">say</span>(<span class="str">"Hello Mr. ${name}"</span>)</pre>
       </div>
       <div>
-        <pre style="font-size:0.85rem"><span class="kw">def</span> <span class="fn">main</span>(): <span class="ty">Unit</span> \ <span class="eff">IO</span> =
+        <pre><span class="kw">def</span> <span class="fn">main</span>(): <span class="ty">Unit</span> \ <span class="eff">IO</span> =
     <span class="kw">run</span> {
         <span class="fn">greeting</span>()
     } <span class="kw">with handler</span> <span class="ty">Ask</span> {
@@ -518,7 +736,25 @@ p#x + p#y</pre>
       </div>
     </div>
   </div>
+```
 
+**Step 5: Commit**
+
+```bash
+git add presentation.html
+git commit -m "feat: add Effect System slides (pure/impure, polymorphism, handlers, resumable)"
+```
+
+---
+
+### Task 8: Add Regions slide (slide 15)
+
+**Files:**
+- Modify: `presentation.html` — append after slide 14
+
+**Step 1: Add slide 15 (Regions)**
+
+```html
   <!-- Slide 15: Regions -->
   <div class="slide">
     <h2>Regions</h2>
@@ -550,7 +786,25 @@ p#x + p#y</pre>
       </div>
     </div>
   </div>
+```
 
+**Step 2: Commit**
+
+```bash
+git add presentation.html
+git commit -m "feat: add Regions slide"
+```
+
+---
+
+### Task 9: Add Embedded Datalog slide (slide 16)
+
+**Files:**
+- Modify: `presentation.html` — append after slide 15
+
+**Step 1: Add slide 16 (Embedded Datalog)**
+
+```html
   <!-- Slide 16: Embedded Datalog -->
   <div class="slide">
     <h2>Embedded Datalog</h2>
@@ -582,7 +836,25 @@ p#x + p#y</pre>
       </div>
     </div>
   </div>
+```
 
+**Step 2: Commit**
+
+```bash
+git add presentation.html
+git commit -m "feat: add Embedded Datalog slide"
+```
+
+---
+
+### Task 10: Add Modules, Testing, Java Interop, and Next Steps slides (slides 17–19)
+
+**Files:**
+- Modify: `presentation.html` — append final slides after slide 16
+
+**Step 1: Add slide 17 (Modules & Testing)**
+
+```html
   <!-- Slide 17: Modules & Testing -->
   <div class="slide">
     <h2>Modules &amp; Testing</h2>
@@ -617,7 +889,11 @@ p#x + p#y</pre>
       </div>
     </div>
   </div>
+```
 
+**Step 2: Add slide 18 (Java Interop)**
+
+```html
   <!-- Slide 18: Java Interop -->
   <div class="slide">
     <h2>Java Interop</h2>
@@ -650,7 +926,11 @@ p#x + p#y</pre>
       </div>
     </div>
   </div>
+```
 
+**Step 3: Add slide 19 (Next Steps)**
+
+```html
   <!-- Slide 19: Next Steps -->
   <div class="slide title">
     <h1 style="font-size:2.8rem;">Next Steps</h1>
@@ -664,45 +944,33 @@ p#x + p#y</pre>
     </ul>
     <p style="margin-top:2em; color:#4a4a6a;">Flix · flix.dev · Apache 2.0</p>
   </div>
-</div>
-<div class="footer">
-  <span class="nav-hint">← → Space · Home · End</span>
-  <span class="counter" id="counter">1 / 19</span>
-</div>
-<script>
-const slides = Array.from(document.querySelectorAll('.slide'));
-let current = 0;
+```
 
-function show(n) {
-  if (slides.length === 0) return;
-  slides[current].classList.remove('active');
-  current = Math.max(0, Math.min(n, slides.length - 1));
-  slides[current].classList.add('active');
-  document.getElementById('counter').textContent = `${current + 1} / ${slides.length}`;
-}
+**Step 4: Reload browser, verify all 19 slides and navigation.**
 
-document.addEventListener('keydown', e => {
-  const navKeys = ['ArrowRight', 'ArrowLeft', ' ', 'Home', 'End'];
-  if (!navKeys.includes(e.key)) return;
-  e.preventDefault();
-  if (e.key === 'ArrowRight' || e.key === ' ')  show(current + 1);
-  if (e.key === 'ArrowLeft')                     show(current - 1);
-  if (e.key === 'Home')                          show(0);
-  if (e.key === 'End')                           show(slides.length - 1);
-});
+**Step 5: Commit**
 
-// Touch support
-let touchX = 0;
-document.addEventListener('touchstart', e => touchX = e.touches[0].clientX);
-document.addEventListener('touchend', e => {
-  const dx = e.changedTouches[0].clientX - touchX;
-  if (Math.abs(dx) > 50) show(current + (dx < 0 ? 1 : -1));
-});
+```bash
+git add presentation.html
+git commit -m "feat: add Modules, Java Interop, and Next Steps slides — complete presentation"
+```
 
-// Initialize counter without triggering a remove/add cycle on the already-active slide
-if (slides.length > 0) {
-  document.getElementById('counter').textContent = `1 / ${slides.length}`;
-}
-</script>
-</body>
-</html>
+---
+
+### Task 11: Polish pass
+
+**Files:**
+- Modify: `presentation.html`
+
+**Step 1: Verify all slides fit without horizontal scrolling at 1280×800** (standard projector resolution). Reduce font sizes on any overflowing slides via inline `style="font-size:0.85rem"` or by trimming code examples to essential lines.
+
+**Step 2: Check slide counter updates correctly on first and last slide.**
+
+**Step 3: Test keyboard navigation: Home/End, arrow keys, Space.**
+
+**Step 4: Final commit**
+
+```bash
+git add presentation.html
+git commit -m "polish: verify layout at 1280x800, trim overflowing slides"
+```
