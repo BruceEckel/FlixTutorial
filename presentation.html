@@ -549,6 +549,38 @@ p#x + p#y</pre>
       </div>
     </div>
   </div>
+
+  <!-- Slide 16: Embedded Datalog -->
+  <div class="slide">
+    <h2>Embedded Datalog</h2>
+    <p style="color:#a0a0c0; margin-bottom:0.5em;">First-class Datalog constraints built into the language. Inject collections, compute fixpoints, query results — all within normal Flix functions.</p>
+    <div class="two-col">
+      <div>
+        <h3>Graph reachability</h3>
+        <pre><span class="kw">def</span> <span class="fn">isConnected</span>(s, src, dst) =
+    <span class="kw">let</span> rules = #{
+        Path(x, y) :- Edge(x, y).
+        Path(x, z) :- Path(x, y), Edge(y, z).
+    };
+    <span class="kw">let</span> edges = inject s into Edge/<span class="num">2</span>;
+    <span class="kw">let</span> paths = query edges, rules
+        select <span class="kw">true</span> from Path(src, dst);
+    not (<span class="ty">Vector</span>.<span class="fn">isEmpty</span>(paths))</pre>
+      </div>
+      <div>
+        <h3>Key syntax</h3>
+        <ul>
+          <li><code>#{ ... }</code> — Datalog rules/facts as a value</li>
+          <li><code>inject s into Edge/2</code> — fold any <code>Foldable</code> into relations</li>
+          <li><code>query ... select expr from Pred(args)</code> — returns <code>Vector</code></li>
+          <li>Constraints are <strong>row-polymorphic</strong> — composable values</li>
+        </ul>
+        <h3>Inject multiple collections</h3>
+        <pre>inject names, jedis
+    into Name/<span class="num">1</span>, Jedi/<span class="num">1</span></pre>
+      </div>
+    </div>
+  </div>
 </div>
 <div class="footer">
   <span class="nav-hint">← → Space · Home · End</span>
