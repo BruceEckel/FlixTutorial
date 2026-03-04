@@ -1,0 +1,217 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Introducing Flix</title>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  font-family: 'Segoe UI', system-ui, sans-serif;
+  background: #1a1a2e;
+  color: #eaeaea;
+  height: 100vh;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.deck {
+  flex: 1;
+  position: relative;
+  overflow: hidden;
+}
+
+.slide {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: flex-start;
+  padding: 60px 80px;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.3s ease;
+}
+
+.slide.active {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+/* Title slide */
+.slide.title {
+  align-items: center;
+  text-align: center;
+}
+
+.slide.title h1 {
+  font-size: 3.5rem;
+  color: #e94560;
+  margin-bottom: 0.4em;
+}
+
+.slide.title .subtitle {
+  font-size: 1.4rem;
+  color: #a0a0c0;
+}
+
+/* Content slides */
+h2 {
+  font-size: 2rem;
+  color: #e94560;
+  margin-bottom: 0.6em;
+  border-bottom: 2px solid #e9456033;
+  padding-bottom: 0.3em;
+  width: 100%;
+}
+
+h3 {
+  font-size: 1.2rem;
+  color: #a0a0c0;
+  margin: 0.8em 0 0.3em;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+ul {
+  list-style: none;
+  margin: 0.5em 0;
+}
+
+ul li {
+  padding: 0.3em 0;
+  padding-left: 1.2em;
+  position: relative;
+  font-size: 1.05rem;
+  line-height: 1.5;
+}
+
+ul li::before {
+  content: '▸';
+  color: #e94560;
+  position: absolute;
+  left: 0;
+}
+
+strong { color: #e2b96f; }
+
+code {
+  font-family: 'Cascadia Code', 'Fira Code', 'Consolas', monospace;
+  font-size: 0.92em;
+  background: #0f3460;
+  border-radius: 3px;
+  padding: 0.1em 0.35em;
+}
+
+pre {
+  background: #0f3460;
+  border: 1px solid #1e4a8a;
+  border-radius: 6px;
+  padding: 1em 1.2em;
+  margin: 0.7em 0;
+  overflow-x: auto;
+  font-family: 'Cascadia Code', 'Fira Code', 'Consolas', monospace;
+  font-size: 0.95rem;
+  line-height: 1.6;
+  color: #c9d1d9;
+}
+
+/* Syntax highlighting via spans */
+.kw  { color: #ff79c6; }
+.ty  { color: #8be9fd; }
+.fn  { color: #50fa7b; }
+.str { color: #f1fa8c; }
+.cm  { color: #6272a4; font-style: italic; }
+.num { color: #bd93f9; }
+.op  { color: #ff79c6; }
+.eff { color: #ffb86c; }
+
+table {
+  border-collapse: collapse;
+  margin: 0.5em 0;
+  width: 100%;
+  font-size: 0.95rem;
+}
+
+th {
+  background: #16213e;
+  color: #e94560;
+  padding: 0.5em 0.8em;
+  text-align: left;
+  border: 1px solid #1e4a8a;
+}
+
+td {
+  padding: 0.4em 0.8em;
+  border: 1px solid #1e4a8a;
+}
+
+tr:nth-child(even) td { background: #16213e44; }
+
+.two-col {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 2em;
+  width: 100%;
+}
+
+/* Footer */
+.footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px 80px;
+  background: #16213e;
+  font-size: 0.85rem;
+  color: #6272a4;
+}
+
+.counter { font-variant-numeric: tabular-nums; }
+.nav-hint { color: #4a4a6a; }
+</style>
+</head>
+<body>
+<div class="deck" id="deck">
+  <!-- slides will be added in subsequent tasks -->
+  <!-- Add ONE placeholder slide so the engine initializes without errors: -->
+  <div class="slide active">
+    <h2>Loading…</h2>
+  </div>
+</div>
+<div class="footer">
+  <span class="nav-hint">← → Space · Home · End</span>
+  <span class="counter" id="counter">1 / 1</span>
+</div>
+<script>
+const slides = Array.from(document.querySelectorAll('.slide'));
+let current = 0;
+
+function show(n) {
+  slides[current].classList.remove('active');
+  current = Math.max(0, Math.min(n, slides.length - 1));
+  slides[current].classList.add('active');
+  document.getElementById('counter').textContent = `${current + 1} / ${slides.length}`;
+}
+
+document.addEventListener('keydown', e => {
+  if (e.key === 'ArrowRight' || e.key === ' ')  show(current + 1);
+  if (e.key === 'ArrowLeft')                     show(current - 1);
+  if (e.key === 'Home')                          show(0);
+  if (e.key === 'End')                           show(slides.length - 1);
+});
+
+// Touch support
+let touchX = 0;
+document.addEventListener('touchstart', e => touchX = e.touches[0].clientX);
+document.addEventListener('touchend', e => {
+  const dx = e.changedTouches[0].clientX - touchX;
+  if (Math.abs(dx) > 50) show(current + (dx < 0 ? 1 : -1));
+});
+
+show(0);
+</script>
+</body>
+</html>
