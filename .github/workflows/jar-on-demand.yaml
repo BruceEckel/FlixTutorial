@@ -1,0 +1,64 @@
+name: JAR on Demand
+
+on:
+  issue_comment:
+    types: [created]
+
+jobs:
+  handle-request:
+    if: github.event.issue.pull_request && contains(github.event.comment.body, '!!!jar')
+    runs-on: ubuntu-latest
+    steps:
+      - name: Acknowledge request
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: >
+              github.rest.issues.createComment({
+                issue_number: context.issue.number,
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                body: 'Building JAR...'
+              })
+      - name: Install JDK
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '21'
+      - name: Look up branch
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: >
+            var pull_promise = github.rest.pulls.get({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              pull_number: context.issue.number
+            });
+            pull_promise.then(pull => {
+              core.exportVariable("feature_repo", pull.data.head.repo.full_name);
+              core.exportVariable("feature_ref", pull.data.head.ref);
+            });
+      - name: Check out feature branch
+        uses: actions/checkout@v5
+        with:
+          repository: ${{ env.feature_repo }}
+          ref: ${{ env.feature_ref }}
+      - name: Build JAR
+        run: ./mill flix.assembly
+      - name: Upload JAR
+        uses: actions/upload-artifact@v4
+        with:
+          name: JAR
+          path: out/flix/assembly.dest/out.jar
+      - name: Comment JAR link
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: >
+              github.rest.issues.createComment({
+                issue_number: context.issue.number,
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                body: "The JAR is available [HERE](" + "https://github.com/" + context.repo.owner + "/" + context.repo.repo + "/actions/runs/" + context.runId + ")."
+              })

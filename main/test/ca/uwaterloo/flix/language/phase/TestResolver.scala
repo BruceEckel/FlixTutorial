@@ -1,0 +1,2137 @@
+/*
+ *  Copyright 2017 Magnus Madsen
+ *
+ *  Licensed under the Apache License, Version 2.0 (the "License");
+ *  you may not use this file except in compliance with the License.
+ *  You may obtain a copy of the License at
+ *
+ *  http://www.apache.org/licenses/LICENSE-2.0
+ *
+ *  Unless required by applicable law or agreed to in writing, software
+ *  distributed under the License is distributed on an "AS IS" BASIS,
+ *  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ *  See the License for the specific language governing permissions and
+ *  limitations under the License.
+ */
+
+package ca.uwaterloo.flix.language.phase
+
+import ca.uwaterloo.flix.TestUtils
+import ca.uwaterloo.flix.language.errors.{ResolutionError, TypeError}
+import ca.uwaterloo.flix.util.Options
+import org.scalatest.funsuite.AnyFunSuite
+
+class TestResolver extends AnyFunSuite with TestUtils {
+
+  test("InaccessibleDef.01") {
+    val input =
+      s"""
+         |mod A {
+         |  def f(): Int32 = 42
+         |}
+         |
+         |mod B {
+         |  def g(): Int32 = A.f()
+         |}
+       """.stripMargin
+    val result = check(input, Options.TestWithLibNix)
+    expectError[ResolutionError.InaccessibleDef](result)
+  }
+
+  test("InaccessibleDef.02") {
+    val input =
+      s"""
+         |mod A {
+         |  def f(): Int32 = A.B.C.g()
+         |
+         |  mod B.C {
+         |    def g(): Int32 = A.f()
+         |  }
+         |}
+       """.stripMargin
+    val result = check(input, Options.TestWithLibNix)
+    expectError[ResolutionError.InaccessibleDef](result)
+  }
+
+  test("InaccessibleEnum.01") {
+    val input =
+      s"""
+         |mod A {
+         |  enum Color {
+         |    case Blu,
+         |    case Red
+         |  }
+         |}
+         |
+         |mod B {
+         |  def g(): A.Color = A.Color.Red
+         |}
+       """.stripMargin
+    val result = check(input, Options.TestWithLibNix)
+    expectError[ResolutionError.InaccessibleEnum](result)
+  }
+
+  test("InaccessibleEnum.02") {
+    val input =
+      s"""
+         |mod A {
+         |  def f(): A.B.C.Color = A.B.C.Color.Blu
+         |
+         |  mod B.C {
+         |    enum Color {
+         |      case Blu,
+         |      case Red
+         |    }
+         |  }
+         |}
+       """.stripMargin
+    val result = check(input, Options.TestWithLibNix)
+    expectError[ResolutionError.InaccessibleEnum](result)
+  }
+
+  test("InaccessibleRestrictableEnum.01") {
+    val input =
+      s"""
+         |mod A {
+         |  restrictable enum Color[a] {
+         |    case Blu
+         |    case Red
+         |  }
+         |}
+         |
+         |mod B {
+         |  def g(): A.Color[a] = A.Color[a].Red
+         |}
+       """.stripMargin
+    val result = check(input, Options.TestWithLibNix)
+    expectError[ResolutionError.InaccessibleRestrictableEnum](result)
+  }
+
+  test("InaccessibleRestrictableEnum.02") {
+    val input =
+      s"""
+         |mod A {
+         |  def f(): A.B.C.Color[a] = A.B.C.Color[a].Blu
+         |
+         |  mod B.C {
+         |    restrictable enum Color[a] {
+         |      case Blu
+         |      case Red
+         |    }
+         |  }
+         |}
+       """.stripMargin
+    val result = check(input, Options.TestWithLibNix)
+    expectError[ResolutionError.InaccessibleRestrictableEnum](result)
+  }
+
+  test("InaccessibleRestrictableEnum.03") {
+    val input =
+      s"""
+         |mod A {
+         |  restrictable enum Color[a] {
+         |    case Blu
+         |    case Red
+         |  }
+         |}
+         |
+         |def g(): A.Color[a] = A.Color[a].Red
+         |
+       """.stripMargin
+    val result = check(input, Options.TestWithLibNix)
+    expectError[ResolutionError.InaccessibleRestrictableEnum](result)
+  }
+
+  test("InaccessibleStruct.01") {
+    val input =
+      s"""
+         |mod A{
+         |    struct S[r] {
+         |        a: Int32
+         |    }
+         |}
+         |
+         |mod B {
+         |    def g(): A.S = ???
+         |}
+         |""".stripMargin
+    val result = check(input, Options.TestWithLibNix)
+    expectError[ResolutionError.InaccessibleStruct](result)
+  }
+
+  test("InaccessibleStruct.02") {
+    val input =
+      s"""
+         |mod A {
+         |    def f(): A.B.C.Color = ???
+         |
+         |    mod B.C {
+         |        struct Color[r] { }
+         |    }
+         |}
+       """.stripMargin
+    val result = check(input, Options.TestWithLibNix)
+    expectError[ResolutionError.InaccessibleStruct](result)
+  }
+
+  // this test is temporarily ignored because it recovers and proceeds
+  // to fail in future unimplemented phases
+  test("InaccessibleStruct.03") {
+    val input =
+      s"""
+         |mod A{
+         |    struct S[r] {
+         |        a: Int32
+         |    }
+         |}
+         |
+         |mod B {
+         |    def g(): Unit = {
+         |        region rc {
+         |            new A.S @ rc { a = 3 };
+         |            ()
+         |        }
+         |    }
+         |}
+         """.stripMargin
+    val result = check(input, Options.TestWithLibNix)
+    expectError[ResolutionError.InaccessibleStruct](result)
+  }
+
+  test("InaccessibleType.01") {
+    val input =
+      s"""
+         |mod A {
+         |    enum Color {
+         |        case Blu,
+         |        case Red
+         |    }
+         |}
+         |
+         |mod B {
+         |    def g(): A.Color = ???
+         |}
+       """.stripMargin
+    val result = check(input, Options.TestWithLibNix)
+    expectError[ResolutionError.InaccessibleEnum](result)
+  }
+
+  test("InaccessibleType.02") {
+    val input =
+      s"""
+         |mod A {
+         |  def f(): A.B.C.Color = ???
+         |
+         |  mod B.C {
+         |    enum Color {
+         |      case Blu,
+         |      case Red
+         |    }
+         |  }
+         |}
+       """.stripMargin
+    val result = check(input, Options.TestWithLibNix)
+    expectError[ResolutionError.InaccessibleEnum](result)
+  }
+
+  test("InaccessibleType.03") {
+    val input =
+      s"""
+         |mod A {
+         |  def f(): A.B.C.Color = ???
+         |
+         |  mod B.C {
+         |    struct Color[r] {
+         |    }
+         |  }
+         |}
+       """.stripMargin
+    val result = check(input, Options.TestWithLibNix)
+    expectError[ResolutionError.InaccessibleStruct](result)
+  }
+
+  test("InaccessibleTypeAlias.01") {
+    val input =
+      s"""
+         |mod A {
+         |  type alias Color = Int32
+         |}
+         |
+         |mod B {
+         |  def g(): A.Color = 123
+         |}
+       """.stripMargin
+    val result = check(input, Options.TestWithLibNix)
+    expectError[ResolutionError.InaccessibleTypeAlias](result)
+  }
+
+  test("InaccessibleTypeAlias.02") {
+    val input =
+      s"""
+         |mod A {
+         |  def f(): A.B.C.Color = 123
+         |
+         |  mod B.C {
+         |    type alias Color = Int32
+         |  }
+         |}
+       """.stripMargin
+    val result = check(input, Options.TestWithLibNix)
+    expectError[ResolutionError.InaccessibleTypeAlias](result)
+  }
+
+  test("InaccessibleTrait.01") {
+    val input =
+      s"""
+         |mod A {
+         |  trait Show[a] {
+         |    pub def show(x: a): String
+         |  }
+         |}
+         |
+         |mod B {
+         |  def g(x: a): Int32 with A.Show[a] = ???
+         |}
+       """.stripMargin
+    val result = check(input, Options.TestWithLibNix)
+    expectError[ResolutionError.InaccessibleTrait](result)
+  }
+
+  test("InaccessibleTrait.02") {
+    val input =
+      s"""
+         |mod A {
+         |  def f(x: a): Int32 with A.B.C.Show[a] = ???
+         |
+         |  mod B.C {
+         |    trait Show[a] {
+         |      pub def show(x: a): String
+         |    }
+         |  }
+         |}
+       """.stripMargin
+    val result = check(input, Options.TestWithLibNix)
+    expectError[ResolutionError.InaccessibleTrait](result)
+  }
+
+  test("InaccessibleTrait.03") {
+    val input =
+      """
+        |mod N {
+        |    trait C[a]
+        |}
+        |
+        |mod O {
+        |    instance N.C[Int32]
+        |}
+        |""".stripMargin
+    val result = check(input, Options.TestWithLibNix)
+    expectError[ResolutionError.InaccessibleTrait](result)
+  }
+
+  test("InaccessibleTrait.04") {
+    val input =
+      """
+        |mod N {
+        |    trait C[a]
+        |}
+        |
+        |mod O {
+        |    trait D[a] with N.C[a]
+        |}
+        |""".stripMargin
+    val result = check(input, Options.TestWithLibNix)
+    expectError[ResolutionError.InaccessibleTrait](result)
+  }
+
+  test("SealedTrait.01") {
+    val input =
+      """
+        |mod N {
+        |    pub sealed trait C[a]
+        |}
+        |
+        |mod O {
+        |    instance N.C[Int32]
+        |}
+        |""".stripMargin
+    val result = check(input, Options.TestWithLibNix)
+    expectError[ResolutionError.SealedTrait](result)
+  }
+
+  test("SealedTrait.02") {
+    val input =
+      """
+        |mod N {
+        |    sealed trait C[a]
+        |
+        |    mod O {
+        |        instance N.C[Int32]
+        |    }
+        |}
+        |""".stripMargin
+    val result = check(input, Options.TestWithLibNix)
+    expectError[ResolutionError.SealedTrait](result)
+  }
+
+  test("SealedTrait.03") {
+    val input =
+      """
+        |mod N {
+        |    sealed trait C[a]
+        |
+        |    mod O {
+        |        trait D[a] with N.C[a]
+        |    }
+        |}
+        |""".stripMargin
+    val result = check(input, Options.TestWithLibNix)
+    expectError[ResolutionError.SealedTrait](result)
+  }
+
+  test("CyclicTypeAliases.01") {
+    val input =
+      s"""
+         |type alias Foo = Foo
+         |
+         |def f(): Foo = 123
+         |
+       """.stripMargin
+    val result = check(input, Options.TestWithLibNix)
+    expectError[ResolutionError.CyclicTypeAliases](result)
+  }
+
+  test("CyclicTypeAliases.02") {
+    val input =
+      s"""
+         |type alias Foo = Bar
+         |type alias Bar = Foo
+         |
+         |def f(): Foo = 123
+         |
+       """.stripMargin
+    val result = check(input, Options.TestWithLibNix)
+    expectError[ResolutionError.CyclicTypeAliases](result)
+  }
+
+  test("CyclicTypeAliases.03") {
+    val input =
+      s"""
+         |type alias Foo = Bar
+         |type alias Bar = Baz
+         |type alias Baz = Foo
+         |
+         |def f(): Foo = 123
+         |
+       """.stripMargin
+    val result = check(input, Options.TestWithLibNix)
+    expectError[ResolutionError.CyclicTypeAliases](result)
+  }
+
+  test("CyclicTypeAliases.04") {
+    val input =
+      s"""
+         |enum Option[t] {
+         |    case None,
+         |    case Some(t)
+         |}
+         |
+         |type alias Foo = Option[Foo]
+         |
+         |def f(): Foo = 123
+         |
+       """.stripMargin
+    val result = check(input, Options.TestWithLibNix)
+    expectError[ResolutionError.CyclicTypeAliases](result)
+  }
+
+  test("CyclicTypeAliases.05") {
+    val input =
+      s"""
+         |enum Option[t] {
+         |    case None,
+         |    case Some(t)
+         |}
+         |
+         |type alias Foo = Option[Bar]
+         |type alias Bar = Option[Foo]
+         |
+         |def f(): Foo = 123
+         |
+       """.stripMargin
+    val result = check(input, Options.TestWithLibNix)
+    expectError[ResolutionError.CyclicTypeAliases](result)
+  }
+
+  test("CyclicTypeAliases.06") {
+    val input =
+      s"""
+         |struct S[t, r] {
+         |    field: t
+         |}
+         |
+         |type alias Foo = S[Bar]
+         |type alias Bar = S[Foo]
+         |
+         |def f(): Foo = 123
+         |
+       """.stripMargin
+    val result = check(input, Options.TestWithLibNix)
+    expectError[ResolutionError.CyclicTypeAliases](result)
+  }
+
+  test("UndefinedName.01") {
+    val input = "def f(): Int32 = x"
+    val result = check(input, Options.TestWithLibNix)
+    expectError[ResolutionError.UndefinedName](result)
+  }
+
+  test("UndefinedName.02") {
+    val input =
+      s"""
+         |mod A {
+         |  def f(x: Int32, y: Int32): Int32 = x + y + z
+         |}
+       """.stripMargin
+    val result = check(input, Options.TestWithLibNix)
+    expectError[ResolutionError.UndefinedName](result)
+  }
+
+  test("UndefinedName.03") {
+    val input =
+      """
+        |import java.util.Objects
+        |import java.lang.Object
+        |
+        |pub def check(): Bool \ IO = Objects.isNull((x: Object))
+        |""".stripMargin
+    val result = check(input, Options.TestWithLibNix)
+    expectError[ResolutionError.UndefinedName](result)
+  }
+
+  test("UndefinedUse.01") {
+    val input =
+      s"""
+         |mod A {
+         |    trait C[a] {
+         |        pub def f(x: a): a
+         |    }
+         |}
+         |
+         |mod B {
+         |    use A.f
+         |    def g(): Int32 = f(1)
+         |}
+         |""".stripMargin
+    val result = check(input, Options.TestWithLibNix)
+    expectError[ResolutionError.UndefinedUse](result)
+  }
+
+  test("UndefinedEffect.01") {
+    val input =
+      """
+        |def f(): Unit = run () with handler E {
+        |    def op() = ()
+        |}
+        |""".stripMargin
+    val result = check(input, Options.TestWithLibNix)
+    expectError[ResolutionError.UndefinedEffect](result)
+  }
+
+ test("UndefinedEffect.02") {
+   val input =
+     """
+       |def f(): Unit = run () with handler Ef
+       |""".stripMargin
+   val result = check(input, Options.TestWithLibNix)
+   expectError[ResolutionError.UndefinedEffect](result)
+ }
+
+  test("UndefinedOp.01") {
+    val input =
+      """
+        |eff E
+        |
+        |def f(): Unit = run () with handler E {
+        |    def op() = ()
+        |}
+        |""".stripMargin
+    val result = check(input, Options.TestWithLibNix)
+    expectError[ResolutionError.UndefinedOp](result)
+  }
+
+  test("UndefinedTrait.01") {
+    val input =
+      """
+        |instance C[Int32]
+        |""".stripMargin
+    val result = check(input, Options.TestWithLibNix)
+    expectError[ResolutionError.UndefinedTrait](result)
+  }
+
+  test("UndefinedTrait.02") {
+    val input =
+      """
+        |def f(x: a): a with C[a] = x
+        |""".stripMargin
+    val result = check(input, Options.TestWithLibNix)
+    expectError[ResolutionError.UndefinedTrait](result)
+  }
+
+  test("UndefinedTrait.03") {
+    val input =
+      """
+        |trait K[a]
+        |
+        |def f(x: a): a with K[a], U[a] = x
+        |""".stripMargin
+    val result = check(input, Options.TestWithLibNix)
+    expectError[ResolutionError.UndefinedTrait](result)
+  }
+
+  test("UndefinedTrait.04") {
+    val input =
+      """
+        |trait K[a]
+        |
+        |instance K[a] with U[a]
+        |""".stripMargin
+    val result = check(input, Options.TestWithLibNix)
+    expectError[ResolutionError.UndefinedTrait](result)
+  }
+
+  test("UndefinedJvmConstructor.01") {
+    val input =
+      """
+           |import java.io.File
+           |
+           |def foo(): Unit =
+           |    let _ = new File();
+           |    ()
+       """.stripMargin
+    val result = check(input, Options.TestWithLibMin)
+    expectError[TypeError.ConstructorNotFound](result)
+  }
+
+  test("UndefinedJvmConstructor.02") {
+    val input =
+      raw"""
+           |import java.io.File
+           |
+           |def foo(): Unit \ IO =
+           |    let _ = new File(0);
+           |    ()
+       """.stripMargin
+    val result = check(input, Options.TestWithLibMin)
+    expectError[TypeError.ConstructorNotFound](result)
+  }
+
+  test("UndefinedJvmConstructor.03") {
+    val input =
+      raw"""
+           |import java.lang.String
+           |
+           |def foo(): Unit \ IO =
+           |    let _ = new String(true);
+           |    ()
+       """.stripMargin
+    val result = check(input, Options.TestWithLibMin)
+    expectError[TypeError.ConstructorNotFound](result)
+  }
+
+  test("UndefinedJvmConstructor.04") {
+    val input =
+      raw"""
+           |import java.lang.String
+           |
+           |def foo(): Unit \ IO =
+           |    let _ = new String(true, 'a', "test");
+           |    ()
+       """.stripMargin
+    val result = check(input, Options.TestWithLibMin)
+    expectError[TypeError.ConstructorNotFound](result)
+  }
+
+  test("UndefinedJvmImport.01") {
+    val input =
+      raw"""
+           |import foo.bar.Baz
+           |def foo(): Unit =
+           |    let _ = unsafe new Baz();
+           |    ()
+       """.stripMargin
+    val result = check(input, Options.TestWithLibMin)
+    expectError[ResolutionError.UndefinedJvmImport](result)
+  }
+
+  test("UndefinedJvmImport.02") {
+    val input =
+      raw"""
+           |import foo.bar.Baz
+           |def foo(): Unit =
+           |    let obj = unsafe new Baz();
+           |    let _ = unsafe obj.f();
+           |    ()
+       """.stripMargin
+    val result = check(input, Options.TestWithLibMin)
+    expectError[ResolutionError.UndefinedJvmImport](result)
+  }
+
+  test("UndefinedJvmImport.03") {
+    val input =
+      raw"""
+           |import foo.bar.Baz
+           |def foo(): Unit =
+           |    let _ = unsafe Baz.f();
+           |    ()
+       """.stripMargin
+    val result = check(input, Options.TestWithLibMin)
+    expectError[ResolutionError.UndefinedJvmImport](result)
+  }
+
+  test("UndefinedNew.01") {
+    val input =
+      raw"""
+           |def foo(): Unit =
+           |    let _ = new NotImported();
+           |    ()
+       """.stripMargin
+    val result = check(input, Options.TestWithLibMin)
+    expectError[ResolutionError.UndefinedNew](result)
+  }
+
+  test("UndefinedNew.02") {
+    val input =
+      raw"""
+           |import java.io.File
+           |def foo(): Unit =
+           |    let _ = new Filr("path");
+           |    ()
+       """.stripMargin
+    val result = check(input, Options.TestWithLibMin)
+    expectError[ResolutionError.UndefinedNew](result)
+  }
+
+  test("UndefinedJvmMethod.01") {
+    val input =
+      raw"""
+           |import java.lang.String
+           |
+           |def foo(): Unit =
+           |    let o = new String();
+           |    let _ = o.getFoo();
+           |    ()
+       """.stripMargin
+    val result = check(input, Options.TestWithLibMin)
+    expectError[TypeError.MethodNotFound](result)
+  }
+
+  test("UndefinedJvmMethod.02") {
+    val input =
+      raw"""
+           |import java.lang.String
+           |
+           |def foo(): Unit =
+           |    let o = new String();
+           |    let _ = o.charAt();
+           |    ()
+       """.stripMargin
+    val result = check(input, Options.TestWithLibMin)
+    expectError[TypeError.MethodNotFound](result)
+  }
+
+  test("UndefinedJvmMethod.03") {
+    val input =
+      raw"""
+           |import java.lang.String
+           |
+           |def foo(): Unit =
+           |    let o = new String();
+           |    let _ = o.charAt(0, 1);
+           |    ()
+       """.stripMargin
+    val result = check(input, Options.TestWithLibMin)
+    expectError[TypeError.MethodNotFound](result)
+  }
+
+  test("UndefinedJvmMethod.04") {
+    val input =
+      raw"""
+           |import java.lang.String
+           |
+           |def foo(): Unit =
+           |    let o = new String();
+           |    let _ = o.isEmpty(true);
+           |    ()
+       """.stripMargin
+    val result = check(input, Options.TestWithLibMin)
+    expectError[TypeError.MethodNotFound](result)
+  }
+
+  test("UndefinedJvmMethod.05") {
+    val input =
+      raw"""
+           |import java.lang.String
+           |
+           |def foo(): Unit =
+           |    let _ = String.isEmpty();
+           |    ()
+       """.stripMargin
+    val result = check(input, Options.TestWithLibMin)
+    expectError[TypeError.StaticMethodNotFound](result)
+  }
+
+  test("UndefinedJvmMethod.06") {
+    val input =
+      raw"""
+           |import java.lang.String
+           |
+           |def foo(): Unit =
+           |    let o = new String();
+           |    let _ = o.valueOf(false);
+           |    ()
+       """.stripMargin
+    val result = check(input, Options.TestWithLibMin)
+    expectError[TypeError.MethodNotFound](result)
+  }
+
+  test("UndefinedJvmMethod.07") {
+    val input =
+      """
+        |import java.util.Arrays
+        |def foo(): String \ IO = {
+        |    Arrays.deepToString(Array#{} @ Static)
+        |}
+        |""".stripMargin
+    val result = check(input, Options.TestWithLibMin)
+    expectError[TypeError](result)
+  }
+
+  test("UndefinedJvmField.01") {
+    val input =
+      """
+        |import java.lang.Object
+        |def foo(obj: Object): String \ IO = {
+        |    obj.stringField
+        |}
+        |""".stripMargin
+    val result = check(input, Options.TestWithLibNix)
+    expectError[TypeError.FieldNotFound](result)
+  }
+
+  test("UndefinedJvmField.02") {
+    val input =
+      """
+        |import java.lang.Object
+        |def foo(obj: Object): String \ IO = {
+        |    obj.coolField.stringField
+        |}
+        |""".stripMargin
+    val result = check(input, Options.TestWithLibNix)
+    expectError[TypeError.FieldNotFound](result)
+  }
+
+  test("UndefinedJvmField.03") {
+    val input =
+      """
+        |import java.lang.Object
+        |def foo(obj: Object): String \ IO = {
+        |    (obj.coolField).stringField
+        |}
+        |""".stripMargin
+    val result = check(input, Options.TestWithLibNix)
+    expectError[TypeError.FieldNotFound](result)
+  }
+
+  test("MismatchingType.01") {
+    val input =
+      raw"""
+           |import java.lang.String
+           |
+           |def foo(): Unit =
+           |    let o = new String();
+           |    let _ : Unit = o.hashCode();
+           |    ()
+       """.stripMargin
+    val result = check(input, Options.TestWithLibMin)
+    expectError[TypeError.MismatchedTypes](result)
+  }
+
+  test("MismatchingType.02") {
+    val input =
+      raw"""
+           |import java.lang.String
+           |import java.util.Iterator
+           |
+           |def foo(): Unit =
+           |    let o = new String();
+           |    let _ : Iterator = o.subSequence(4, -1);
+           |    ()
+       """.stripMargin
+    val result = check(input, Options.TestWithLibMin)
+    expectError[TypeError.MismatchedTypes](result)
+  }
+
+  test("MismatchingType.03") {
+    val input =
+      raw"""
+           |import java.lang.String
+           |import java.util.Iterator
+           |
+           |type alias AliasedReturnType = Iterator
+           |
+           |def foo(): Unit =
+           |    let o = new String();
+           |    let _ : AliasedReturnType = o.subSequence(-1, 18);
+           |    ()
+       """.stripMargin
+    val result = check(input, Options.TestWithLibMin)
+    expectError[TypeError.MismatchedTypes](result)
+  }
+
+  test("MismatchingType.04") {
+    val input =
+      """
+        |import java.util.Objects
+        |
+        |def isThisThingNull(x: a): Bool =
+        |    Objects.isNull(x)
+        |""".stripMargin
+    val result = check(input, Options.TestWithLibNix)
+    expectError[TypeError.MismatchedTypes](result)
+  }
+
+  test("UndefinedJvmStaticField.01") {
+    val input =
+      raw"""
+           |import java.lang.Math
+           |
+           |def foo(): Unit = Math.Foo
+       """.stripMargin
+    val result = check(input, Options.TestWithLibMin)
+    expectError[ResolutionError.UndefinedJvmStaticField](result)
+  }
+
+  test("UndefinedJvmStaticField.02") {
+    val input =
+      raw"""
+           |import java.lang.Math
+           |
+           |def foo(): Unit = Math.Abs
+       """.stripMargin
+    val result = check(input, Options.TestWithLibMin)
+    expectError[ResolutionError.UndefinedJvmStaticField](result)
+  }
+
+  test("UndefinedJvmStaticField.03") {
+    val input =
+      raw"""
+           |import java.lang.Math
+           |import java.io.File
+           |
+           |def foo(): Unit = File.PI
+       """.stripMargin
+    val result = check(input, Options.TestWithLibMin)
+    expectError[ResolutionError.UndefinedJvmStaticField](result)
+  }
+
+  test("UndefinedTag.01") {
+    val input =
+      s"""
+         |enum A {
+         |  case Foo
+         |}
+         |
+         |def f(): A = A.Qux
+         |
+       """.stripMargin
+    val result = check(input, Options.TestWithLibNix)
+    expectError[ResolutionError.UndefinedName](result)
+  }
+
+  test("UndefinedTag.02") {
+    val input =
+      s"""
+         |mod A {
+         |  enum B {
+         |    case Foo,
+         |    case Bar
+         |  }
+         |
+         |  def f(): B = B.Qux(1 + 2)
+         |}
+       """.stripMargin
+    val result = check(input, Options.TestWithLibNix)
+    expectError[ResolutionError.UndefinedName](result)
+  }
+
+  test("UndefinedTag.03") {
+    val input =
+      s"""
+         |mod A {
+         |  enum B {
+         |    case Foo,
+         |    case Bar
+         |  }
+         |
+         |  def f(b: B): Int32 = match b {
+         |    case B.Qux => 42
+         |  }
+         |}
+       """.stripMargin
+    val result = check(input, Options.TestWithLibNix)
+    expectError[ResolutionError.UndefinedTag](result)
+  }
+
+  test("UndefinedType.01") {
+    val input = "def x(): Foo = 42"
+    val result = check(input, Options.TestWithLibNix)
+    expectError[ResolutionError.UndefinedType](result)
+  }
+
+  test("UndefinedType.02") {
+    val input =
+      s"""mod A {
+         |  def foo(bar: Baz, baz: Baz): Qux = bar
+         |}
+       """.stripMargin
+    val result = check(input, Options.TestWithLibNix)
+    expectError[ResolutionError.UndefinedType](result)
+  }
+
+  test("UndefinedType.03") {
+    val input =
+      s"""
+         |mod A {
+         |  def f(): Int32 = Foo.Bar
+         |}
+       """.stripMargin
+    val result = check(input, Options.TestWithLibNix)
+    expectError[ResolutionError.UndefinedName](result)
+  }
+
+  test("UndefinedType.04") {
+    val input =
+      s"""
+         |mod A {
+         |  def f(): Int32 = Foo/Bar.Qux(true)
+         |}
+       """.stripMargin
+    val result = check(input, Options.TestWithLibNix)
+    expectError[ResolutionError.UndefinedName](result)
+  }
+
+  test("UndefinedType.05") {
+    val input =
+      """
+        |def f(): Unit \ E = ???
+        |""".stripMargin
+    val result = check(input, Options.TestWithLibNix)
+    expectError[ResolutionError.UndefinedType](result)
+  }
+
+  test("UndefinedType.06") {
+    val input =
+      """
+        |def f(x: a -> b \ E): Unit = ???
+        |""".stripMargin
+    val result = check(input, Options.TestWithLibNix)
+    expectError[ResolutionError.UndefinedType](result)
+  }
+
+
+  test("CyclicTraitHierarchy.01") {
+    val input = "trait A[a] with A[a]"
+    val result = check(input, Options.TestWithLibNix)
+    expectError[ResolutionError.CyclicTraitHierarchy](result)
+  }
+
+  test("CyclicTraitHierarchy.02") {
+    val input =
+      """
+        |trait A[a] with B[a]
+        |trait B[a] with A[a]
+        |""".stripMargin
+    val result = check(input, Options.TestWithLibNix)
+    expectError[ResolutionError.CyclicTraitHierarchy](result)
+  }
+
+  test("CyclicTraitHierarchy.03") {
+    val input =
+      """
+        |trait A[a] with B[a]
+        |trait B[a] with C[a]
+        |trait C[a] with A[a]
+        |""".stripMargin
+    val result = check(input, Options.TestWithLibNix)
+    expectError[ResolutionError.CyclicTraitHierarchy](result)
+  }
+
+  test("CyclicTraitHierarchy.04") {
+    val input =
+      """
+        |trait A[a] with A[a], B[a]
+        |trait B[a]
+        |""".stripMargin
+    val result = check(input, Options.TestWithLibNix)
+    expectError[ResolutionError.CyclicTraitHierarchy](result)
+  }
+
+  test("CyclicTraitHierarchy.05") {
+    val input =
+      """
+        |trait A[a] with B[a]
+        |trait B[a] with A[a], C[a]
+        |trait C[a]
+        |""".stripMargin
+    val result = check(input, Options.TestWithLibNix)
+    expectError[ResolutionError.CyclicTraitHierarchy](result)
+  }
+
+  test("DuplicateDerivation.01") {
+    val input =
+      """
+        |enum E with Eq, Eq
+        |""".stripMargin
+    val result = check(input, Options.TestWithLibMin)
+    expectError[ResolutionError.DuplicateDerivation](result)
+  }
+
+  test("DuplicateDerivation.02") {
+    val input =
+      """
+        |enum E with ToString, Order, ToString
+        |""".stripMargin
+    val result = check(input, Options.TestWithLibMin)
+    expectError[ResolutionError.DuplicateDerivation](result)
+  }
+
+  test("UnderAppliedTypeAlias.01") {
+    val input =
+      """
+        |type alias T[a] = a
+        |type alias S = T
+        |""".stripMargin
+    val result = check(input, Options.TestWithLibMin)
+    expectError[ResolutionError.UnderAppliedTypeAlias](result)
+  }
+
+  test("UnderAppliedTypeAlias.02") {
+    val input =
+      """
+        |type alias T[a, b] = (a, b)
+        |type alias S = T[Int32]
+        |""".stripMargin
+    val result = check(input, Options.TestWithLibMin)
+    expectError[ResolutionError.UnderAppliedTypeAlias](result)
+  }
+
+  test("UnderAppliedTypeAlias.03") {
+    val input =
+      """
+        |type alias T[a] = a
+        |
+        |def f(x: T): Int32 = ???
+        |""".stripMargin
+    val result = check(input, Options.TestWithLibMin)
+    expectError[ResolutionError.UnderAppliedTypeAlias](result)
+  }
+
+  test("UnderAppliedTypeAlias.04") {
+    val input =
+      """
+        |type alias T[a] = a
+        |enum E[f: Type -> Type]
+        |
+        |def f(x: E[T]): Int32 = ???
+        |""".stripMargin
+    val result = check(input, Options.TestWithLibMin)
+    expectError[ResolutionError.UnderAppliedTypeAlias](result)
+  }
+
+  test("UnderAppliedAssocType.01") {
+    val input =
+      """
+        |trait C[a] {
+        |    type T[a]: Type
+        |}
+        |
+        |def f(x: C.T): String = ???
+        |""".stripMargin
+    val result = check(input, Options.TestWithLibNix)
+    expectError[ResolutionError.UnderAppliedAssocType](result)
+  }
+
+  test("UndefinedAssocType.01") {
+    val input =
+      """
+        |trait C[a]
+        |
+        |instance C[String] {
+        |    type T[String] = Int32
+        |}
+        |""".stripMargin
+    val result = check(input, Options.TestWithLibNix)
+    expectError[ResolutionError.UndefinedAssocType](result)
+  }
+
+  test("UndefinedAssocType.02") {
+    val input =
+      """
+        |trait C[a] {
+        |    type T: Type
+        |}
+        |
+        |instance C[String] {
+        |    type U = Int32
+        |}
+        |""".stripMargin
+    val result = check(input, Options.TestWithLibNix)
+    expectError[ResolutionError.UndefinedAssocType](result)
+  }
+
+  test("UndefinedAssocType.03") {
+    val input =
+      """
+        |trait C[a] {
+        |    type T: Type
+        |    type U: Type
+        |}
+        |
+        |instance C[String] {
+        |    type T = Int32
+        |    type V = Bool
+        |}
+        |""".stripMargin
+    val result = check(input, Options.TestWithLibNix)
+    expectError[ResolutionError.UndefinedAssocType](result)
+  }
+
+  test("IllegalNonJavaType.01") {
+    val input =
+      """
+        |def f(): Unit =
+        |    new Int32 {}
+        |""".stripMargin
+    val result = check(input, Options.TestWithLibNix)
+    expectError[ResolutionError.IllegalNonJavaType](result)
+  }
+
+  test("IllegalNonJavaType.02") {
+    val input =
+      """
+        |def f(): Unit =
+        |    new String {}
+        |""".stripMargin
+    val result = check(input, Options.TestWithLibNix)
+    expectError[ResolutionError.IllegalNonJavaType](result)
+  }
+
+  test("IllegalNonJavaType.03") {
+    val input =
+      """
+        |type alias T = Int32
+        |
+        |def f(): Unit =
+        |    new T {}
+        |""".stripMargin
+    val result = check(input, Options.TestWithLibNix)
+    expectError[ResolutionError.IllegalNonJavaType](result)
+  }
+
+  test("ParentNamespaceNotVisible.01") {
+    val input =
+      """
+        |mod A {
+        |    pub enum X
+        |    mod B {
+        |        def foo(): X = ???
+        |    }
+        |}
+        |""".stripMargin
+    val result = check(input, Options.TestWithLibNix)
+    expectError[ResolutionError.UndefinedType](result)
+  }
+
+  test("ParentNamespaceNotVisible.02") {
+    val input =
+      """
+        |mod A {
+        |    pub type alias X = Int32
+        |    mod B {
+        |        def foo(): X = ???
+        |    }
+        |}
+        |""".stripMargin
+    val result = check(input, Options.TestWithLibNix)
+    expectError[ResolutionError.UndefinedType](result)
+  }
+
+  test("ParentNamespaceNotVisible.03") {
+    val input =
+      """
+        |mod A {
+        |    pub trait X[a]
+        |    mod B {
+        |        enum Y
+        |        instance X[Y]
+        |    }
+        |}
+        |""".stripMargin
+    val result = check(input, Options.TestWithLibNix)
+    expectError[ResolutionError.UndefinedTrait](result)
+  }
+
+  test("ParentNamespaceNotVisible.04") {
+    val input =
+      """
+        |mod A {
+        |    pub def x(): Int32 = ???
+        |    mod B {
+        |        def foo(): Int32 = x()
+        |    }
+        |}
+        |""".stripMargin
+    val result = check(input, Options.TestWithLibNix)
+    expectError[ResolutionError.UndefinedName](result)
+  }
+
+  test("UseClearedInNamespace.01") {
+    val input =
+      """
+        |use A.X
+        |mod A {
+        |  enum X
+        |}
+        |mod B {
+        |  def foo(): X = ???
+        |}
+        |""".stripMargin
+    val result = check(input, Options.TestWithLibNix)
+    expectError[ResolutionError.UndefinedType](result)
+  }
+
+  test("UseClearedInNamespace.02") {
+    val input =
+      """
+        |mod A {
+        |  enum X
+        |}
+        |mod B {
+        |  use A.X
+        |  mod C {
+        |     def foo(): X = ???
+        |  }
+        |}
+        |""".stripMargin
+    val result = check(input, Options.TestWithLibNix)
+    expectError[ResolutionError.UndefinedType](result)
+  }
+
+  test("ImportClearedInNamespace.01") {
+    val input =
+      """
+        |import java.lang.StringBuffer
+        |mod A {
+        |  def foo(): StringBuffer = ???
+        |}
+        |""".stripMargin
+    val result = check(input, Options.TestWithLibNix)
+    expectError[ResolutionError.UndefinedType](result)
+  }
+
+  test("ImportClearedInNamespace.02") {
+    val input =
+      """
+        |mod A {
+        |  import java.lang.StringBuffer
+        |  mod B {
+        |     def foo(): StringBuffer = ???
+        |  }
+        |}
+        |""".stripMargin
+    val result = check(input, Options.TestWithLibNix)
+    expectError[ResolutionError.UndefinedType](result)
+  }
+
+  test("TestParYield.01") {
+    val input =
+      """
+        |def f(): Int32 =
+        |    par (_ <- let b = 5; b) yield b
+        |""".stripMargin
+    val result = check(input, Options.TestWithLibNix)
+    expectError[ResolutionError.UndefinedName](result)
+  }
+
+  test("UndefinedTypeVar.Def.01") {
+    val input = "def f[a: Type](): b = 123"
+    val result = check(input, Options.TestWithLibNix)
+    expectError[ResolutionError.UndefinedTypeVar](result)
+  }
+
+  test("UndefinedTypeVar.Def.02") {
+    val input = "def f[a: Type](x: b): Int = 123"
+    val result = check(input, Options.TestWithLibNix)
+    expectError[ResolutionError.UndefinedTypeVar](result)
+  }
+
+  test("UndefinedTypeVar.Def.03") {
+    val input = "def f[a: Type, b: Type, c: Type](x: Option[d]): Int = 123"
+    val result = check(input, Options.TestWithLibNix)
+    expectError[ResolutionError.UndefinedTypeVar](result)
+  }
+
+  test("UndefinedTypeVar.Instance.01") {
+    val input = "instance C[a] with C[b]"
+    val result = check(input, Options.TestWithLibNix)
+    expectError[ResolutionError.UndefinedTypeVar](result)
+  }
+
+  test("UndefinedTypeVar.Instance.02") {
+    val input = "instance C[(a, b)] with D[c]"
+    val result = check(input, Options.TestWithLibNix)
+    expectError[ResolutionError.UndefinedTypeVar](result)
+  }
+
+  test("UndefinedTypeVar.Instance.03") {
+    val input = "instance C[(a, b)] with D[a], D[b], D[c]"
+    val result = check(input, Options.TestWithLibNix)
+    expectError[ResolutionError.UndefinedTypeVar](result)
+  }
+
+  test("UndefinedTypeVar.Trait.01") {
+    val input =
+      """
+        |trait A[a]
+        |trait B[a] with A[b]
+        |""".stripMargin
+    val result = check(input, Options.TestWithLibNix)
+    expectError[ResolutionError.UndefinedTypeVar](result)
+  }
+
+  test("UndefinedTypeVar.Trait.02") {
+    val input =
+      """
+        |trait A[a]
+        |trait B[a]
+        |trait C[a] with A[a], B[b]
+        |""".stripMargin
+    val result = check(input, Options.TestWithLibNix)
+    expectError[ResolutionError.UndefinedTypeVar](result)
+  }
+
+  test("UndefinedTypeVar.Where.01") {
+    // https://github.com/flix/flix/issues/8409
+    val input =
+      """
+        |trait Trait[t] {
+        |    type Tpe: Type
+        |}
+        |
+        |def foo(): Unit where Trait.Tpe[a] ~ Int32 =
+        |    ()
+        |""".stripMargin
+    val result = check(input, Options.TestWithLibNix)
+    expectError[ResolutionError.UndefinedTypeVar](result)
+  }
+
+  test("IllegalSignature.01") {
+    // The type variable `a` does not appear in the signature of `f`
+    val input =
+      """
+        |trait C[a] {
+        |    pub def f(): Bool
+        |}
+        |""".stripMargin
+    val result = check(input, Options.TestWithLibNix)
+    expectError[ResolutionError.IllegalSignature](result)
+  }
+
+  test("IllegalSignature.02") {
+    val input =
+      """
+        |trait C[a] {
+        |    pub def f(): a
+        |
+        |    pub def g(): Bool
+        |}
+        |""".stripMargin
+    val result = check(input, Options.TestWithLibNix)
+    expectError[ResolutionError.IllegalSignature](result)
+  }
+
+  test("IllegalSignature.03") {
+    val input =
+      """
+        |trait C[a] {
+        |    pub def f(x: {y = a}): {y = Bool}
+        |
+        |    pub def g(x: {y = Bool}): Bool
+        |}
+        |""".stripMargin
+    val result = check(input, Options.TestWithLibNix)
+    expectError[ResolutionError.IllegalSignature](result)
+  }
+
+  test("IllegalSignature.04") {
+    val input =
+      """
+        |trait C[a] {
+        |    pub def f(): a
+        |
+        |    pub def g(): Bool
+        |
+        |    pub def h(): a
+        |}
+        |""".stripMargin
+    val result = check(input, Options.TestWithLibNix)
+    expectError[ResolutionError.IllegalSignature](result)
+  }
+
+  test("IllegalSignature.05") {
+    val input =
+      """
+        |trait C[a] {
+        |    pub def f(): Int
+        |
+        |    pub def g(): String
+        |
+        |    pub def h(): a
+        |}
+        |""".stripMargin
+    val result = check(input, Options.TestWithLibNix)
+    expectError[ResolutionError.IllegalSignature](result)
+  }
+
+  test("IllegalSignature.06") {
+    val input =
+      """
+        |trait C[a] {
+        |    type T[a]: Type
+        |
+        |    pub def f(x: C.T[a]): String
+        |}
+        |""".stripMargin
+    val result = check(input, Options.TestWithLibNix)
+    expectError[ResolutionError.IllegalSignature](result)
+  }
+
+  test("IllegalWildType.01") {
+    val input =
+      """
+        |type alias T = _
+        |""".stripMargin
+    val result = check(input, Options.TestWithLibNix)
+    expectError[ResolutionError.IllegalWildType](result)
+  }
+
+  test("IllegalWildType.02") {
+    val input =
+      """
+        |type alias T = _ -> _
+        |""".stripMargin
+    val result = check(input, Options.TestWithLibNix)
+    expectError[ResolutionError.IllegalWildType](result)
+  }
+
+  test("IllegalWildType.03") {
+    val input =
+      """
+        |enum E {
+        |    case C(_)
+        |}
+        |""".stripMargin
+    val result = check(input, Options.TestWithLibNix)
+    expectError[ResolutionError.IllegalWildType](result)
+  }
+
+  test("IllegalWildType.04") {
+    val input =
+      """
+        |enum E[_]
+        |def foo(): String = unchecked_cast(123 as E[_])
+        |""".stripMargin
+    val result = check(input, Options.TestWithLibNix)
+    expectError[ResolutionError.IllegalWildType](result)
+  }
+
+  test("UndefinedKind.01") {
+    val input =
+      """
+        |trait C[a: Blah]
+        |""".stripMargin
+    val result = check(input, Options.TestWithLibNix)
+    expectError[ResolutionError.UndefinedKind](result)
+  }
+
+  test("UndefinedKind.02") {
+    val input =
+      """
+        |enum E[a: Blah]
+        |""".stripMargin
+    val result = check(input, Options.TestWithLibNix)
+    expectError[ResolutionError.UndefinedKind](result)
+  }
+
+  test("UndefinedKind.03") {
+    val input =
+      """
+        |def f[a: Blah](x: a): String = ???
+        |""".stripMargin
+    val result = check(input, Options.TestWithLibNix)
+    expectError[ResolutionError.UndefinedKind](result)
+  }
+
+  test("DuplicateAssocTypeDef.01") {
+    val input =
+      """
+        |trait C[a] {
+        |    type T: Type
+        |}
+        |
+        |instance C[String] {
+        |    type T = String
+        |    type T = Bool
+        |}
+        |""".stripMargin
+    val result = check(input, Options.TestWithLibNix)
+    expectError[ResolutionError.DuplicateAssocTypeDef](result)
+  }
+
+  test("MissingAssocTypeDef.01") {
+    val input =
+      """
+        |trait C[a] {
+        |    type T: Type
+        |}
+        |
+        |instance C[String] {
+        |}
+        |""".stripMargin
+    val result = check(input, Options.TestWithLibNix)
+    expectError[ResolutionError.MissingAssocTypeDef](result)
+  }
+
+  test("MissingAssocTypeDef.02") {
+    val input =
+      """
+        |mod Foo {
+        |    trait Add[a] {
+        |        pub type Aef: Eff
+        |        pub def add(x: a, y: a): a \ Add.Aef[a]
+        |    }
+        |
+        |    instance Foo.Add[t] {
+        |        pub def add(x: t, y: t): t \ Aef[a] = ???
+        |    }
+        |}
+        |""".stripMargin
+    val result = check(input, Options.TestWithLibNix)
+    expectError[ResolutionError.MissingAssocTypeDef](result)
+  }
+
+  test("IllegalAssocTypeApplication.01") {
+    val input =
+      """
+        |trait C[a] {
+        |    type T
+        |}
+        |
+        |def foo(): C.T[String] = ???
+        |""".stripMargin
+    val result = check(input, Options.TestWithLibNix)
+    expectError[ResolutionError.IllegalAssocTypeApplication](result)
+  }
+
+  test("IllegalAssocTypeApplication.02") {
+    val input =
+      """
+        |trait C[a] {
+        |    type T[a]: Type
+        |}
+        |
+        |instance C[String] {
+        |    type T[String] = C.T[String]
+        |}
+        |""".stripMargin
+    val result = check(input, Options.TestWithLibNix)
+    expectError[ResolutionError.IllegalAssocTypeApplication](result)
+  }
+
+  test("Test.MismatchedOpArity.Handler.01") {
+    val input =
+      """
+        |eff E {
+        |    def op(x: String): Unit
+        |}
+        |
+        |def foo(): Unit = {
+        |    run checked_ecast(()) with handler E {
+        |        def op(x, y, cont) = ()
+        |    }
+        |}
+        |""".stripMargin
+    val result = check(input, Options.TestWithLibNix)
+    expectError[ResolutionError.MismatchedOpArity](result)
+  }
+
+  test("Test.MismatchedOpArity.Handler.02") {
+    val input =
+      """
+        |eff E {
+        |    def op(x: String, y: Int32): Unit
+        |}
+        |
+        |def foo(): Unit = {
+        |    run checked_ecast(()) with handler E {
+        |        def op(cont) = ()
+        |    }
+        |}
+        |""".stripMargin
+    val result = check(input, Options.TestWithLibNix)
+    expectError[ResolutionError.MismatchedOpArity](result)
+  }
+
+  test("Test.MismatchedTagPatternArity.01") {
+    val input =
+      """
+        |enum List[t] {
+        |    case Nil
+        |    case Cons(t, List[t])
+        |}
+        |
+        |def foo(l: List[Int32]): Int32 = {
+        |    match l {
+        |      case Nil => 42
+        |      case Cons(_) => 42
+        |    }
+        |}
+        |""".stripMargin
+    val result = check(input, Options.TestWithLibNix)
+    expectError[ResolutionError.MismatchedTagPatternArity](result)
+  }
+
+  test("Test.MismatchedTagPatternArity.02") {
+    val input =
+      """
+        |enum List[t] {
+        |    case Nil
+        |    case Cons(t, List[t])
+        |}
+        |
+        |def foo(l: List[Int32]): Int32 = {
+        |    match l {
+        |      case Nil => 42
+        |      case Cons(x, _xs, _bonus) => x
+        |    }
+        |}
+        |""".stripMargin
+    val result = check(input, Options.TestWithLibNix)
+    expectError[ResolutionError.MismatchedTagPatternArity](result)
+  }
+
+  test("ResolutionError.UndefinedStruct.01") {
+    val input =
+      """
+        |def f(): Unit = {
+        |    region rc {
+        |        new UndefinedStruct @ rc { };
+        |        ()
+        |    }
+        |}
+        |""".stripMargin
+    val result = check(input, Options.TestWithLibNix)
+    expectError[ResolutionError.UndefinedStruct](result)
+  }
+
+  test("ResolutionError.UndefinedStruct.02") {
+    val input =
+      """
+        |mod M {
+        |    struct S1[r] {}
+        |    def f(): Unit = {
+        |        region rc {
+        |            new UndefinedStruct @ rc { };
+        |            ()
+        |        }
+        |    }
+        |}
+        |""".stripMargin
+    val result = check(input, Options.TestWithLibNix)
+    expectError[ResolutionError.UndefinedStruct](result)
+  }
+
+  test("ResolutionError.UndefinedStruct.03") {
+    val input =
+      """
+        |mod M {
+        |    struct S1[r] {}
+        |    def f(): Unit = {
+        |        region rc {
+        |            new UndefinedStruct @ rc { };
+        |            new S1 @ rc { };
+        |            ()
+        |        }
+        |    }
+        |}
+        |""".stripMargin
+    val result = check(input, Options.TestWithLibNix)
+    expectError[ResolutionError.UndefinedStruct](result)
+  }
+
+  // A bug was introduced into the kinder when it was refactored, so this test fails, but
+  // will reenable it once my next struct kinder support pr is merged
+  test("ResoutionError.MissingStructField.01") {
+    val input =
+      """
+        |mod S {
+        |    struct S[r] { }
+        |    def f(s: S[r]): Unit = {
+        |        s->missingField;
+        |        ()
+        |    }
+        |}
+        |""".stripMargin
+    val result = check(input, Options.TestWithLibNix)
+    expectError[ResolutionError.UndefinedStructField](result)
+  }
+
+  test("ResolutionError.MissingStructField.02") {
+    val input =
+      """
+        |mod S {
+        |    struct S[r] { }
+        |    def f(s: S[r]): Unit = {
+        |        s->missingField = 3;
+        |        ()
+        |    }
+        |}
+        |""".stripMargin
+    val result = check(input, Options.TestWithLibNix)
+    expectError[ResolutionError.UndefinedStructField](result)
+  }
+
+  test("ResolutionError.MissingStructField.03") {
+    val input =
+      """
+        |mod S {
+        |    struct S[r] { field1: Int32 }
+        |    def f(s: S[r]): Unit = {
+        |        s->missingField = 3;
+        |        ()
+        |    }
+        |}
+        |""".stripMargin
+    val result = check(input, Options.TestWithLibNix)
+    expectError[ResolutionError.UndefinedStructField](result)
+  }
+
+  test("ResolutionError.TooFewFields.01") {
+    val input =
+      """
+        |struct S[r] {
+        |    a: Int32
+        |}
+        |def f(rc: Region): S[r] = {
+        |    new S @ rc { }
+        |}
+        |""".stripMargin
+    val result = check(input, Options.TestWithLibNix)
+    expectError[ResolutionError.MissingStructFieldInNew](result)
+  }
+
+  test("ResolutionError.TooFewFields.02") {
+    val input =
+      """
+        |struct S[r] {
+        |    a: Int32
+        |}
+        |struct S2[r] { }
+        |def f(rc: Region): S[r] = {
+        |    new S @ rc { }
+        |}
+        |""".stripMargin
+    val result = check(input, Options.TestWithLibNix)
+    expectError[ResolutionError.MissingStructFieldInNew](result)
+  }
+
+  test("ResolutionError.TooFewFields.03") {
+    val input =
+      """
+        |struct S[r] {
+        |    a: Int32,
+        |    b: Int32,
+        |    c: Int32
+        |}
+        |def f(rc: Region): S[r] = {
+        |    new S @ rc { a = 4, c = 2 }
+        |}
+        |""".stripMargin
+    val result = check(input, Options.TestWithLibNix)
+    expectError[ResolutionError.MissingStructFieldInNew](result)
+  }
+
+  test("ResolutionError.TooManyFields.01") {
+    val input =
+      """
+        |struct S[r] {
+        |    a: Int32
+        |}
+        |def f(rc: Region): S[r] = {
+        |    new S @ rc { a = 4, b = "hello" }
+        |}
+        |""".stripMargin
+    val result = check(input, Options.TestWithLibNix)
+    expectError[ResolutionError.ExtraStructFieldInNew](result)
+  }
+
+  test("ResolutionError.TooManyFields.02") {
+    val input =
+      """
+        |struct S[r] {
+        |    a: Int32
+        |    b: Int32
+        |    c: Int32
+        |}
+        |def f(rc: Region): S[r] = {
+        |    new S @ rc {b = 4, c = 3, a = 2, extra = 5}
+        |}
+        |""".stripMargin
+    val result = check(input, Options.TestWithLibNix)
+    expectError[ResolutionError.ExtraStructFieldInNew](result)
+  }
+
+  test("ResolutionError.TooManyFields.03") {
+    val input =
+      """
+        |struct S[r] { }
+        |def f(rc: Region): S[r] = {
+        |    new S @ rc {a = 3}
+        |}
+        |""".stripMargin
+    val result = check(input, Options.TestWithLibNix)
+    expectError[ResolutionError.ExtraStructFieldInNew](result)
+  }
+
+  test("ResolutionError.MutateImmutableField.01") {
+    val input =
+      """
+        |mod S {
+        |    struct S[r] {f: Int32}
+        |    def f(rc: Region): Unit = {
+        |        new S @ rc {f = 3};
+        |        s->f = 2;
+        |        ()
+        |    }
+        |}
+        |""".stripMargin
+    val result = check(input, Options.TestWithLibNix)
+    expectError[ResolutionError.ImmutableField](result)
+  }
+
+  test("ResolutionError.MutateImmutableField.02") {
+    val input =
+      """
+        |mod S {
+        |    struct S[r] {f1: Int32, mut f2: Int32, f3: Int32}
+        |    def f(rc: Region): Unit = {
+        |        new S @ rc {f1 = 3, f2 = 4, f3 = 5};
+        |        s->f2 = 2;
+        |        s->f1 = 2;
+        |        ()
+        |    }
+        |}
+        |""".stripMargin
+    val result = check(input, Options.TestWithLibNix)
+    expectError[ResolutionError.ImmutableField](result)
+  }
+
+  test("ResolutionError.MutateImmutableField.03") {
+    val input =
+      """
+        |mod S {
+        |    struct S[v, r] {f: Int32, mut f2: v}
+        |    def f(rc: Region): Unit = {
+        |        new S @ rc {f = 3, f2 = new S @ rc {f = 4, f2 = 5}};
+        |        s->f2->f = 2;
+        |        ()
+        |    }
+        |}
+        |""".stripMargin
+    val result = check(input, Options.TestWithLibNix)
+    expectError[ResolutionError.ImmutableField](result)
+  }
+
+  test("ResolutionError.MissingHandlerDef.01") {
+    val input =
+      """
+        |eff E {
+        |    def op(): Unit
+        |}
+        |
+        |def foo(): Unit = {
+        |    run {
+        |      E.op()
+        |    } with handler E {
+        |    }
+        |}
+        |""".stripMargin
+    val result = check(input, Options.TestWithLibNix)
+    expectError[ResolutionError.MissingHandlerDef](result)
+  }
+
+  test("ResolutionError.MissingHandlerDef.02") {
+    val input =
+      """
+        |eff E {
+        |    def op1(): Unit
+        |    def op2(): Unit
+        |}
+        |
+        |def foo(): Unit = {
+        |    run {
+        |      E.op1()
+        |    } with handler E {
+        |      def op1(k): Unit = k()
+        |    }
+        |}
+        |""".stripMargin
+    val result = check(input, Options.TestWithLibNix)
+    expectError[ResolutionError.MissingHandlerDef](result)
+  }
+
+  test("ResolutionError.MissingHandlerDef.03") {
+    val input =
+      """
+        |eff E {
+        |    def op1(): Unit
+        |    def op2(): Unit
+        |}
+        |
+        |def foo(): Unit = {
+        |    run {
+        |      E.op1()
+        |    } with handler E
+        |}
+        |""".stripMargin
+    val result = check(input, Options.TestWithLibNix)
+    expectError[ResolutionError.MissingHandlerDef](result)
+  }
+
+
+  test("ResolutionError.Regression.01") {
+    // Ensures we catch errors in arguments even if the function is not resolvable.
+    // See https://github.com/flix/flix/issues/10047
+    val input =
+      """
+        |def foo(): Unit = {
+        |    bar(
+        |       baz     // ERROR
+        |    )
+        |}
+        |""".stripMargin
+    val result = check(input, Options.TestWithLibNix)
+    expectError[ResolutionError.UndefinedName](result)
+  }
+
+  test("IllegalSuperCall.01") {
+    val input =
+      """
+        |import java.lang.Object
+        |def f(): Unit = {
+        |    super();
+        |    ()
+        |}
+        |""".stripMargin
+    val result = check(input, Options.TestWithLibNix)
+    expectError[ResolutionError.IllegalSuperCall](result)
+  }
+
+  test("IllegalSuperCall.02") {
+    val input =
+      """
+        |import java.lang.Object
+        |def f(): String = super.toString()
+        |""".stripMargin
+    val result = check(input, Options.TestWithLibNix)
+    expectError[ResolutionError.IllegalSuperCall](result)
+  }
+
+  test("IllegalSuperCall.03") {
+    val input =
+      """
+        |import java.lang.Object
+        |def f(): Object \ IO =
+        |    new Object {
+        |        def toString(_this: Object): String \ IO =
+        |            let g = () -> super.toString();
+        |            g()
+        |    }
+        |""".stripMargin
+    val result = check(input, Options.TestWithLibNix)
+    expectError[ResolutionError.IllegalSuperCall](result)
+  }
+
+  test("IllegalSuperCall.04") {
+    val input =
+      """
+        |import java.lang.Object
+        |def f(): Object \ IO =
+        |    new Object {
+        |        def hashCode(_this: Object): Int32 \ IO =
+        |            let g = () -> {
+        |                let h = () -> super.hashCode();
+        |                h()
+        |            };
+        |            g()
+        |    }
+        |""".stripMargin
+    val result = check(input, Options.TestWithLibNix)
+    expectError[ResolutionError.IllegalSuperCall](result)
+  }
+
+  test("IllegalSuperCall.05") {
+    val input =
+      """
+        |import java.lang.Object
+        |def f(): Object \ IO =
+        |    new Object {
+        |        def new(): Object \ IO =
+        |            let g = () -> super();
+        |            g()
+        |    }
+        |""".stripMargin
+    val result = check(input, Options.TestWithLibNix)
+    expectError[ResolutionError.IllegalSuperCall](result)
+  }
+
+  test("UndefinedJvmAnnotation.01") {
+    val input =
+      raw"""
+           |import java.io.Serializable
+           |def foo(): Serializable \ IO =
+           |    new Serializable {
+           |        @NonExistentAnnotation
+           |        def toString(_this: Serializable): String = "hello"
+           |    }
+       """.stripMargin
+    val result = check(input, Options.TestWithLibNix)
+    expectError[ResolutionError.UndefinedJvmAnnotation](result)
+  }
+
+  test("IllegalNonJavaAnnotation.01") {
+    val input =
+      raw"""
+           |import java.io.Serializable
+           |import java.lang.String
+           |def foo(): Serializable \ IO =
+           |    new Serializable {
+           |        @String
+           |        def toString(_this: Serializable): String = "hello"
+           |    }
+       """.stripMargin
+    val result = check(input, Options.TestWithLibMin)
+    expectError[ResolutionError.IllegalNonJavaAnnotation](result)
+  }
+}
