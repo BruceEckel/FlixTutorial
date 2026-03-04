@@ -175,10 +175,32 @@ tr:nth-child(even) td { background: #16213e44; }
 </head>
 <body>
 <div class="deck" id="deck">
-  <!-- slides will be added in subsequent tasks -->
-  <!-- Add ONE placeholder slide so the engine initializes without errors: -->
-  <div class="slide active">
-    <h2>Loading…</h2>
+  <!-- Slide 1: Title -->
+  <div class="slide title active">
+    <h1>Introducing Flix</h1>
+    <p class="subtitle">A functional-first language for the JVM</p>
+    <p class="subtitle" style="margin-top:1.5em; font-size:1rem; color:#4a4a6a;">
+      For programmers experienced with other languages
+    </p>
+  </div>
+
+  <!-- Slide 2: What is Flix? -->
+  <div class="slide">
+    <h2>What is Flix?</h2>
+    <p style="margin-bottom:1em; color:#a0a0c0;">
+      A statically typed, functional-first language for the JVM — drawing from
+      OCaml, Haskell, Scala, and Rust, with four distinctive pillars:
+    </p>
+    <ul>
+      <li><strong>Polymorphic effect system</strong> — side effects tracked in every type signature; pure functions are compiler-guaranteed pure</li>
+      <li><strong>Algebraic effects &amp; handlers</strong> — user-defined effects with deep handlers; replaces monads and monad transformers</li>
+      <li><strong>Region-based local mutation</strong> — pure functions can use internal mutation via scoped regions; mutable data cannot escape</li>
+      <li><strong>Embedded Datalog</strong> — first-class Datalog constraints built into the language; inject, compute fixpoints, query results</li>
+    </ul>
+    <p style="margin-top:1em; color:#a0a0c0;">
+      Hindley-Milner type inference: annotations required on top-level signatures,
+      inferred within bodies.
+    </p>
   </div>
 </div>
 <div class="footer">
