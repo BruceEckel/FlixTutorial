@@ -59,7 +59,7 @@ body {
 }
 
 /* Content slides */
-h2 {
+.slide h2 {
   font-size: 2rem;
   color: #e94560;
   margin-bottom: 0.6em;
@@ -68,7 +68,7 @@ h2 {
   width: 100%;
 }
 
-h3 {
+.slide h3 {
   font-size: 1.2rem;
   color: #a0a0c0;
   margin: 0.8em 0 0.3em;
@@ -190,6 +190,7 @@ const slides = Array.from(document.querySelectorAll('.slide'));
 let current = 0;
 
 function show(n) {
+  if (slides.length === 0) return;
   slides[current].classList.remove('active');
   current = Math.max(0, Math.min(n, slides.length - 1));
   slides[current].classList.add('active');
@@ -197,6 +198,9 @@ function show(n) {
 }
 
 document.addEventListener('keydown', e => {
+  const navKeys = ['ArrowRight', 'ArrowLeft', ' ', 'Home', 'End'];
+  if (!navKeys.includes(e.key)) return;
+  e.preventDefault();
   if (e.key === 'ArrowRight' || e.key === ' ')  show(current + 1);
   if (e.key === 'ArrowLeft')                     show(current - 1);
   if (e.key === 'Home')                          show(0);
@@ -211,7 +215,10 @@ document.addEventListener('touchend', e => {
   if (Math.abs(dx) > 50) show(current + (dx < 0 ? 1 : -1));
 });
 
-show(0);
+// Initialize counter without triggering a remove/add cycle on the already-active slide
+if (slides.length > 0) {
+  document.getElementById('counter').textContent = `1 / ${slides.length}`;
+}
 </script>
 </body>
 </html>
