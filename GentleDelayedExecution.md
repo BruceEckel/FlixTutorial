@@ -533,4 +533,104 @@ handler's choice changes.
 ---
 
 ## 7. Real Problems That Need Delay
+
+Everything in this chapter has been building toward one question: why does any of this matter?
+Here are two real problems that cannot be solved elegantly — or at all — without delayed
+execution.
+
+### Problem 1 — Infinite sequences
+
+Suppose you want to work with "all prime numbers" or "all Fibonacci numbers" but you only ever
+need a finite slice of them. The naive approach is to generate them all first — but that runs
+forever. The only alternative is to guess an upper bound upfront and hope it is large enough.
+Neither option is satisfying.
+
+Lazy lists make the problem disappear. You describe the infinite sequence, take what you need,
+and stop. The rest is never computed.
+
+```flix
+def isPrime(n: Int32): Bool =
+    n >= 2 and not List.exists(d -> n mod d == 0, List.range(2, n))
+
+def main(): Unit \ IO =
+    let nats   = DelayList.from(2);
+    let primes = DelayList.filter(isPrime, nats);
+    let first5 = DelayList.take(5, primes);
+    println(first5)   // 2 :: 3 :: 5 :: 7 :: 11 :: Nil
+```
+
+`nats` is a description of all integers from 2 upward — not the integers themselves. `primes`
+is a description of the filtered stream — not the filtered result. Nothing is computed until
+`take(5, primes)` forces the first five elements. At that point, lazy evaluation pulls elements
+one at a time, applies the primality test to each, and stops after five pass. The integers that
+are not prime are tested and discarded without ever accumulating anywhere.
+
+Without laziness, this program would either loop forever (trying to build the complete list of
+primes) or require you to pick a maximum number to check upfront — an arbitrary ceiling that is
+either too small to find five primes or wastefully large.
+
+### Problem 2 — Retry logic via handlers
+
+Suppose you have business logic that calls an external service. Sometimes the service fails. You
+want to retry up to N times — but you do not want to litter the business logic with retry code.
+The policy of "try again" is a separate concern from the work being done.
+
+Effect handlers make this separation clean. The business logic declares what it needs (`Fetch`);
+the handler decides what happens when things go wrong.
+
+Here is the business logic, written once and never touched again:
+
+```flix
+eff Fetch {
+    def fetch(url: String): String
+}
+
+def reportWeather(url: String): Unit \ {Fetch, IO} =
+    let data = Fetch.fetch(url);
+    println("Weather: ${data}")
+```
+
+Here is the retry handler:
+
+```flix
+def withRetry(attemptsLeft: Int32, action: Unit -> Unit \ {Fetch, IO}): Unit \ IO =
+    if (attemptsLeft <= 0)
+        println("All retries exhausted.")
+    else
+        run {
+            action()
+        } with handler Fetch {
+            def fetch(url, resume) =
+                // In real code: try the actual network call and detect failure.
+                // Here we simulate a failure on every attempt to show the retry mechanism.
+                println("Attempt failed. Retries left: ${attemptsLeft - 1}");
+                withRetry(attemptsLeft - 1, action)
+        }
+```
+
+And the call site:
+
+```flix
+def main(): Unit \ IO =
+    withRetry(3, () -> reportWeather("https://example.com/weather"))
+```
+
+`reportWeather` never changes. The retry policy lives entirely in `withRetry`. When
+`Fetch.fetch(...)` fires and the handler decides to retry, it calls `withRetry` recursively
+with one fewer attempt remaining — but the handler does *not* call `resume`. The current attempt
+is abandoned and a fresh run starts from the top of `action`. The business logic is completely
+decoupled from the retry policy.
+
+You could swap in a different handler — one that logs failures to a database, or sleeps between
+retries, or falls back to a cached result — and `reportWeather` would not need a single edit.
+
+---
+
+In both cases, the solution reads like the problem. You write "the primes" and you get the
+primes. You write "try this, retry on failure" and the handler takes care of the rest. That
+clarity — problem described once, mechanism handled separately — is what delayed execution makes
+possible.
+
+---
+
 ## 8. Summary
