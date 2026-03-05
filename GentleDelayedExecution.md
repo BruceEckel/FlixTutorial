@@ -35,7 +35,7 @@ all three.
 ## 2. Thunks: The Simplest Delay
 
 A **thunk** is a function that takes no arguments and returns a value. In Flix, its type is
-`Unit -> a`, where `a` is whatever type the value turns out to be.
+`Unit -> a`, where `a` is a type variable standing for any return type.
 
 Think of it like a sealed envelope. You write instructions inside and seal it up — nothing
 happens yet. The instructions sit there, patient. Only when someone opens the envelope (calls
@@ -64,16 +64,13 @@ The naive approach looks fine at first:
 ```flix
 def debugLog(enabled: Bool, message: String): Unit \ IO =
     if (enabled) println(message) else ()
+
+debugLog(false, "Result: ${List.range(0, 1_000_000) |> List.length |> ToString.toString}") // pretend this is slow
 ```
 
-But this has a hidden cost. When you call it like this:
-
-```flix
-debugLog(false, "Result: ${expensiveComputation()}")
-```
-
-Flix is eager. Before `debugLog` is even called, it evaluates all the arguments — including
-`expensiveComputation()`. The expensive work runs even though the message will never be printed.
+But this has a hidden cost. Flix is eager. Before `debugLog` is even called, it evaluates all
+the arguments — including the expensive string formatting. The expensive work runs even though
+the message will never be printed.
 
 A thunk fixes this cleanly. Instead of passing a ready-made `String`, you pass a function that
 *produces* a `String`:
@@ -83,7 +80,7 @@ def debugLog(enabled: Bool, makeMessage: Unit -> String \ IO): Unit \ IO =
     if (enabled) println(makeMessage()) else ()
 
 // The expensive formatting only runs if enabled is true
-debugLog(false, () -> "Result: ${expensiveComputation()}")
+debugLog(false, () -> "Result: ${List.range(0, 1_000_000) |> List.length |> ToString.toString}") // pretend this is slow
 ```
 
 Now when `enabled` is `false`, `makeMessage` is never called. The sealed envelope stays sealed.
@@ -92,15 +89,15 @@ The expensive computation never runs.
 ### Two things to know about thunks
 
 First, thunks are not a Flix invention. This pattern works in every language that has
-first-class functions — JavaScript, Python, Scala, Haskell, all of them. It is a general
+first-class functions — JavaScript, Python, Scala, and Haskell. It is a general
 technique, and you will recognise it once you start looking.
 
 Second, there is a downside worth knowing: **if you call the thunk twice, it runs twice**. There
-is no built-in memory of the previous result. If `expensiveComputation()` takes a second to run
-and you call the thunk ten times, you wait ten seconds. This is called the absence of
-*memoization* — and Flix's `lazy` keyword, coming in the next section, is the answer to it.
+is no built-in memory of the previous result. If the thunk takes a second to run and you call it
+ten times, you wait ten seconds. Thunks do not cache results — they have no *memoization*. Flix's
+`lazy` keyword, coming in the next section, is the answer to it.
 
-### A note on effects
+### Thunks with effects
 
 If a thunk performs I/O — say, it calls `println` or reads user input — the effect annotation
 goes on the function type itself:
