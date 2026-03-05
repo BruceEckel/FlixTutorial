@@ -665,7 +665,46 @@ possible.
 
 ---
 
-## 8. Summary
+## 8. Flix vs. ZIO and Effect-TS
+
+If you have used ZIO (Scala) or Effect-TS (TypeScript), you may be looking for the equivalent
+of `.run` or `yield*` — the call that forces a suspended effect to actually execute. There is no
+equivalent in Flix, and the reason is architectural.
+
+ZIO and Effect-TS use an **effect-as-value** model. An effect is a data structure that
+*describes* a computation. Nothing runs until you explicitly call `.run` or `Effect.runSync`.
+The description and the execution are two separate steps, and the gap between them is the whole
+point — it is what lets you compose, transform, and test effects before committing to running
+them.
+
+Flix takes a different approach: **effect-as-capability**. Code runs eagerly. The effect system
+is a type-level permission system — `\ IO` means "this function is allowed to do I/O", not
+"this function holds a suspended I/O computation waiting to be forced". There is no value to
+run.
+
+| | ZIO / Effect-TS | Flix |
+|---|---|---|
+| An effect is... | A suspended value (data) | A type-level capability |
+| Code runs when... | You call `.run` / `runSync` | The expression is evaluated |
+| `run { } with handler` equivalent | Forces a suspended description | Provides an implementation for an abstract effect |
+
+The surface resemblance to ZIO's `.run` is misleading. What `run { } with handler` does is say
+"when this abstract effect fires inside this block, here is what to do with it." That is closer
+to ZIO's `.provide` (dependency injection) than to `.run` (forced execution).
+
+If you specifically wanted the ZIO pattern in Flix — describe a computation now, execute it
+later — you can model it yourself with a thunk (`Unit -> a \ IO`) or a user-defined effect. But
+that is not how the built-in `IO` effect works, and it is not the idiomatic Flix style. Flix
+deliberately avoids wrapping effects in a monad. Instead of making effects into values you carry
+around and eventually run, it tracks them in types and lets code proceed naturally.
+
+The payoff is the same — you know exactly what your functions do, and the compiler enforces it
+— but the machinery is different. In ZIO you *build* the program and then *run* it. In Flix you
+*write* the program and the type system *watches* it run.
+
+---
+
+## 9. Summary
 
 | Mechanism | Syntax | Evaluates once? | Can have effects? | Power |
 |---|---|---|---|---|

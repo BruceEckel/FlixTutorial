@@ -552,7 +552,22 @@ tr:nth-child(even) td { background: #16213e44; }
     <p style="margin-top:0.5em;">The handler does <em>not</em> call <code>_resume</code> — it abandons the current attempt and starts fresh. Swap in a different handler and <code>reportWeather</code> never changes.</p>
   </div>
 
-  <!-- Slide 18: Summary -->
+  <!-- Slide 18: Flix vs ZIO and Effect-TS -->
+  <div class="slide">
+    <h2>Flix vs. ZIO and Effect-TS</h2>
+    <p>If you know ZIO or Effect-TS, you may be looking for the equivalent of <code>.run</code> or <code>yield*</code> — the call that forces a suspended effect to execute. There is no equivalent in Flix. The reason is architectural.</p>
+    <table style="margin:0.7em 0;">
+      <tr><th></th><th>ZIO / Effect-TS</th><th>Flix</th></tr>
+      <tr><td>An effect is…</td><td>A suspended value (data)</td><td>A type-level capability</td></tr>
+      <tr><td>Code runs when…</td><td>You call <code>.run</code> / <code>runSync</code></td><td>The expression is evaluated</td></tr>
+      <tr><td><code>run { } with handler</code></td><td>≈ <code>.provide</code> + <code>.run</code></td><td>Provides an implementation for an abstract effect</td></tr>
+    </table>
+    <p>ZIO and Effect-TS use <strong>effect-as-value</strong>: an effect is a data structure describing a computation. Nothing runs until you explicitly force it. Flix uses <strong>effect-as-capability</strong>: <code>\ IO</code> means "this function is allowed to do I/O", not "this function holds a suspended computation". Code runs eagerly. There is nothing to force.</p>
+    <p style="margin-top:0.6em;"><code>run { } with handler</code> is closer to ZIO's <code>.provide</code> (dependency injection) than to <code>.run</code> (forced execution). Both approaches give you the same guarantee — you know exactly what your functions do, and the compiler enforces it — but the machinery differs.</p>
+    <blockquote>In ZIO you <em>build</em> the program and then <em>run</em> it. In Flix you <em>write</em> the program and the type system <em>watches</em> it run.</blockquote>
+  </div>
+
+  <!-- Slide 19: Summary -->
   <div class="slide">
     <h2>Summary</h2>
     <table style="margin:0.6em 0;">
@@ -567,7 +582,7 @@ tr:nth-child(even) td { background: #16213e44; }
 
 </div>
 
-<div class="counter" id="counter">1 / 18</div>
+<div class="counter" id="counter">1 / 19</div>
 
 <script>
 const slides = Array.from(document.querySelectorAll('.slide'));
