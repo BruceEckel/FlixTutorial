@@ -1,0 +1,590 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>A Gentle Introduction to Delayed Execution in Flix</title>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  font-family: 'Segoe UI', system-ui, sans-serif;
+  background: #1a1a2e;
+  color: #eaeaea;
+  height: 100vh;
+  overflow: hidden;
+}
+
+.deck {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+}
+
+.slide {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: flex-start;
+  padding: 56px 80px;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.3s ease;
+}
+
+.slide.active {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.slide.title {
+  align-items: center;
+  text-align: center;
+}
+
+.slide.title h1 {
+  font-size: 3rem;
+  color: #e94560;
+  margin-bottom: 0.5em;
+  line-height: 1.2;
+}
+
+.slide.title .subtitle {
+  font-size: 1.25rem;
+  color: #a0a0c0;
+  max-width: 640px;
+}
+
+.slide h2 {
+  font-size: 1.9rem;
+  color: #e94560;
+  margin-bottom: 0.55em;
+  border-bottom: 2px solid #e9456033;
+  padding-bottom: 0.3em;
+  width: 100%;
+}
+
+.slide h3 {
+  font-size: 1.05rem;
+  color: #a0a0c0;
+  margin: 0.7em 0 0.25em;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+}
+
+p {
+  color: #c0c0d8;
+  line-height: 1.6;
+  margin: 0.5em 0;
+}
+
+ul {
+  list-style: none;
+  margin: 0.4em 0;
+}
+
+ul li {
+  padding: 0.3em 0 0.3em 1.2em;
+  position: relative;
+  font-size: 1.05rem;
+  line-height: 1.5;
+  color: #eaeaea;
+}
+
+ul li::before {
+  content: '▸';
+  color: #e94560;
+  position: absolute;
+  left: 0;
+}
+
+strong { color: #e2b96f; }
+em { color: #a0a0c0; font-style: italic; }
+
+blockquote {
+  border-left: 3px solid #e94560;
+  padding: 0.5em 1em;
+  margin: 0.7em 0;
+  color: #e2b96f;
+  font-size: 1.1rem;
+  font-style: italic;
+  background: #16213e55;
+  border-radius: 0 6px 6px 0;
+}
+
+code {
+  font-family: 'Cascadia Code', 'Fira Code', 'Consolas', monospace;
+  font-size: 0.9em;
+  background: #0f3460;
+  border-radius: 3px;
+  padding: 0.1em 0.35em;
+}
+
+pre {
+  background: #0f3460;
+  border: 1px solid #1e4a8a;
+  border-radius: 6px;
+  padding: 0.85em 1.1em;
+  margin: 0.6em 0;
+  font-family: 'Cascadia Code', 'Fira Code', 'Consolas', monospace;
+  font-size: 0.9rem;
+  line-height: 1.6;
+  color: #c9d1d9;
+  overflow: visible;
+  white-space: pre-wrap;
+}
+
+.kw  { color: #ff79c6; }
+.ty  { color: #8be9fd; }
+.fn  { color: #50fa7b; }
+.str { color: #f1fa8c; }
+.cm  { color: #6272a4; font-style: italic; }
+.num { color: #bd93f9; }
+.eff { color: #ffb86c; }
+.op  { color: #ff79c6; }
+.ann { color: #6272a4; }
+
+table {
+  border-collapse: collapse;
+  width: 100%;
+  font-size: 0.95rem;
+  margin: 0.5em 0;
+}
+
+th {
+  background: #16213e;
+  color: #e94560;
+  padding: 0.45em 0.8em;
+  text-align: left;
+  border: 1px solid #1e4a8a;
+}
+
+td {
+  padding: 0.4em 0.8em;
+  border: 1px solid #1e4a8a;
+  color: #eaeaea;
+}
+
+tr:nth-child(even) td { background: #16213e44; }
+
+.two-col {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 2em;
+  width: 100%;
+}
+
+.three-col {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 1.5em;
+  width: 100%;
+}
+
+.counter {
+  position: fixed;
+  bottom: 12px;
+  right: 18px;
+  font-size: 0.72rem;
+  color: #3a3a5a;
+  font-variant-numeric: tabular-nums;
+  pointer-events: none;
+  font-family: 'Segoe UI', system-ui, sans-serif;
+}
+</style>
+</head>
+<body>
+
+<div class="deck" id="deck">
+
+  <!-- Slide 1: Title -->
+  <div class="slide title active">
+    <h1>A Gentle Introduction<br>to Delayed Execution in Flix</h1>
+    <p class="subtitle">Thunks, lazy values, and how effect handlers<br>suspend the world</p>
+  </div>
+
+  <!-- Slide 2: What Does "Delay" Mean? -->
+  <div class="slide">
+    <h2>What Does "Delay" Mean?</h2>
+    <p>Think about a recipe. When you read a recipe, no cooking happens. The instructions sit on the page, patient and inert. The meal only exists when someone decides to follow them.</p>
+    <p>Most code works the opposite way — it is <strong>eager</strong>. The moment the interpreter reaches an expression, it evaluates it:</p>
+    <pre><span class="kw">let</span> x = <span class="num">2</span> + <span class="num">3</span>   <span class="cm">// the addition runs immediately — x is already 5</span></pre>
+    <p style="margin-top:0.8em;">That gap between <em>describing</em> a computation and <em>running</em> it is what we mean by <strong>delay</strong>.</p>
+    <p style="margin-top:0.4em;">Flix offers three mechanisms for this, each more powerful than the last:</p>
+    <ul style="margin-top:0.3em;">
+      <li><strong>Thunks</strong> — a plain function that holds an expression until called</li>
+      <li><strong><code>Lazy[T]</code></strong> — built-in lazy evaluation with memoization</li>
+      <li><strong>Effect handlers</strong> — suspend the rest of the program itself</li>
+    </ul>
+  </div>
+
+  <!-- Slide 3: Thunks -->
+  <div class="slide">
+    <h2>Thunks: The Simplest Delay</h2>
+    <p>A <strong>thunk</strong> is a function that takes no arguments. Its type is <code>Unit -&gt; a</code> — a sealed envelope containing instructions that run only when you open it.</p>
+    <div class="two-col" style="margin-top:0.6em;">
+      <div>
+        <h3>Eager — runs immediately</h3>
+        <pre><span class="kw">let</span> x: <span class="ty">Int32</span> = <span class="num">2</span> + <span class="num">3</span>
+<span class="cm">// x is already 5</span></pre>
+      </div>
+      <div>
+        <h3>Thunk — runs when called</h3>
+        <pre><span class="kw">let</span> t: <span class="ty">Unit</span> -> <span class="ty">Int32</span> = () -> <span class="num">2</span> + <span class="num">3</span>
+<span class="cm">// nothing computed yet</span>
+<span class="kw">let</span> y: <span class="ty">Int32</span> = <span class="fn">t</span>()
+<span class="cm">// now it runs</span></pre>
+      </div>
+    </div>
+    <p style="margin-top:0.8em;">The only difference is the <code>() -&gt;</code> wrapper. Without it, Flix evaluates immediately and stores the result. With it, Flix stores the recipe and waits.</p>
+    <p style="margin-top:0.4em; color:#a0a0c0;">Thunks are universal — this pattern works in every language with first-class functions.</p>
+  </div>
+
+  <!-- Slide 4: Why Thunks Matter -->
+  <div class="slide">
+    <h2>Why Thunks Matter: Conditional Logging</h2>
+    <p>A debug logger should only do expensive work when debugging is actually enabled. Without a thunk, the message is always built — even when never printed.</p>
+    <div class="two-col" style="margin-top:0.5em;">
+      <div>
+        <h3>Naive — eager argument</h3>
+        <pre style="font-size:0.85rem;"><span class="kw">def</span> <span class="fn">debugLog</span>(on: <span class="ty">Bool</span>, msg: <span class="ty">String</span>): <span class="ty">Unit</span> \ <span class="eff">IO</span> =
+    <span class="kw">if</span> (on) <span class="fn">println</span>(msg) <span class="kw">else</span> ()
+
+<span class="cm">// The expensive work runs even when on = false!</span>
+<span class="fn">debugLog</span>(<span class="kw">false</span>, <span class="str">"Result: ${</span><span class="fn">expensiveWork</span>()<span class="str">}"</span>)</pre>
+      </div>
+      <div>
+        <h3>Thunk — deferred argument</h3>
+        <pre style="font-size:0.85rem;"><span class="kw">def</span> <span class="fn">debugLog</span>(on: <span class="ty">Bool</span>, make: <span class="ty">Unit</span> -> <span class="ty">String</span> \ <span class="eff">IO</span>):
+    <span class="ty">Unit</span> \ <span class="eff">IO</span> =
+    <span class="kw">if</span> (on) <span class="fn">println</span>(<span class="fn">make</span>()) <span class="kw">else</span> ()
+
+<span class="cm">// The expensive work only runs if on = true</span>
+<span class="fn">debugLog</span>(<span class="kw">false</span>, () -> <span class="str">"Result: ${</span><span class="fn">expensiveWork</span>()<span class="str">}"</span>)</pre>
+      </div>
+    </div>
+    <p style="margin-top:0.8em;"><strong>Downside:</strong> if you call a thunk twice, it runs twice — no memory of the previous result. That is what <code>Lazy[T]</code> fixes.</p>
+  </div>
+
+  <!-- Slide 5: lazy and force -->
+  <div class="slide">
+    <h2><code>lazy</code> and <code>force</code>: Built-In Lazy Evaluation</h2>
+    <pre style="margin-bottom:0.8em;"><span class="kw">let</span> x: <span class="ty">Lazy</span>[<span class="ty">Int32</span>] = <span class="kw">lazy</span> (<span class="num">1</span> + <span class="num">2</span>)   <span class="cm">// not evaluated yet</span>
+<span class="kw">let</span> result: <span class="ty">Int32</span> = <span class="kw">force</span> x          <span class="cm">// evaluates now — result is 3</span>
+<span class="kw">let</span> again:  <span class="ty">Int32</span> = <span class="kw">force</span> x          <span class="cm">// returns 3 instantly — no recalculation</span></pre>
+    <p><code>lazy (expr)</code> wraps the expression without evaluating it. <code>force x</code> evaluates it — once — and caches the result.</p>
+    <p style="margin-top:0.8em; margin-bottom:0.3em;">Three properties:</p>
+    <ul>
+      <li><strong>Delayed.</strong> The expression inside <code>lazy (...)</code> does not run until you <code>force</code> it.</li>
+      <li><strong>Memoized.</strong> Force it ten times — the expression runs exactly once. The result is cached.</li>
+      <li><strong>Pure only.</strong> The expression inside <code>lazy</code> must have no side effects. The compiler enforces this.</li>
+    </ul>
+    <pre style="margin-top:0.7em; font-size:0.85rem;"><span class="cm">// Does NOT compile — intentionally wrong</span>
+<span class="kw">let</span> bad: <span class="ty">Lazy</span>[<span class="ty">Unit</span>] = <span class="kw">lazy</span> (<span class="fn">println</span>(<span class="str">"hi"</span>))
+<span class="cm">// Error: expected pure expression, but expression has effect: IO</span></pre>
+  </div>
+
+  <!-- Slide 6: Thunk vs Lazy -->
+  <div class="slide">
+    <h2>Thunk vs. <code>Lazy[T]</code></h2>
+    <p>When to use which:</p>
+    <table style="margin:0.8em 0;">
+      <tr><th></th><th>Thunk <code>() -&gt; a</code></th><th><code>Lazy[T]</code></th></tr>
+      <tr><td>Evaluate later?</td><td>Yes</td><td>Yes</td></tr>
+      <tr><td>Evaluates once?</td><td>No — runs each call</td><td>Yes — memoized</td></tr>
+      <tr><td>Can have effects?</td><td>Yes</td><td>No — pure only</td></tr>
+    </table>
+    <p>Example: an expensive pure computation needed in several places.</p>
+    <div class="two-col">
+      <div>
+        <h3>Thunk — runs three times</h3>
+        <pre style="font-size:0.82rem;"><span class="kw">let</span> t = () -> <span class="ty">List</span>.<span class="fn">range</span>(<span class="num">0</span>, <span class="num">1_000_000</span>) |> <span class="ty">List</span>.<span class="fn">sum</span>
+<span class="kw">let</span> a = <span class="fn">t</span>()   <span class="cm">// full work</span>
+<span class="kw">let</span> b = <span class="fn">t</span>()   <span class="cm">// full work again</span>
+<span class="kw">let</span> c = <span class="fn">t</span>()   <span class="cm">// full work again</span></pre>
+      </div>
+      <div>
+        <h3>Lazy — runs once</h3>
+        <pre style="font-size:0.82rem;"><span class="kw">let</span> lz = <span class="kw">lazy</span> (<span class="ty">List</span>.<span class="fn">range</span>(<span class="num">0</span>, <span class="num">1_000_000</span>) |> <span class="ty">List</span>.<span class="fn">sum</span>)
+<span class="kw">let</span> a = <span class="kw">force</span> lz   <span class="cm">// runs once</span>
+<span class="kw">let</span> b = <span class="kw">force</span> lz   <span class="cm">// cached</span>
+<span class="kw">let</span> c = <span class="kw">force</span> lz   <span class="cm">// cached</span></pre>
+      </div>
+    </div>
+  </div>
+
+  <!-- Slide 7: DelayList -->
+  <div class="slide">
+    <h2>Lazy Data Structures: <code>DelayList</code></h2>
+    <p>A normal list node holds an <em>already-computed</em> tail. A lazy list node holds a <em>not-yet-computed</em> tail — wrapped in <code>Lazy</code>:</p>
+    <pre style="font-size:0.85rem; margin:0.6em 0;"><span class="cm">// Conceptual shape (illustrative — not real code)</span>
+<span class="kw">enum</span> <span class="ty">DelayList</span>[a] {
+    <span class="kw">case</span> <span class="ty">DNil</span>
+    <span class="kw">case</span> <span class="ty">DCons</span>(a, <span class="ty">Lazy</span>[<span class="ty">DelayList</span>[a]])
+}</pre>
+    <p>Push this idea to its limit: a list that is conceptually <strong>infinite</strong>, computing only as much as you request.</p>
+    <pre style="font-size:0.85rem; margin:0.5em 0;"><span class="kw">def</span> <span class="fn">main</span>(): <span class="ty">Unit</span> \ <span class="eff">IO</span> =
+    <span class="kw">let</span> naturals = <span class="ty">DelayList</span>.<span class="fn">from</span>(<span class="num">1</span>)                     <span class="cm">// 1, 2, 3, ... forever</span>
+    <span class="kw">let</span> evens    = <span class="ty">DelayList</span>.<span class="fn">map</span>(x -> x * <span class="num">2</span>, naturals)   <span class="cm">// nothing computed yet</span>
+    <span class="kw">let</span> first10  = <span class="ty">DelayList</span>.<span class="fn">take</span>(<span class="num">10</span>, evens)             <span class="cm">// forces exactly 10 elements</span>
+    <span class="fn">println</span>(first10)</pre>
+    <p style="color:#a0a0c0; font-size:0.9rem;"><code>take</code> returns a plain <code>List</code>. At no point are more than 10 elements computed.</p>
+  </div>
+
+  <!-- Slide 8: How DelayList works -->
+  <div class="slide">
+    <h2>How the Lazy Chain Works</h2>
+    <p><code>DelayList.from(1)</code> does not generate an infinite list. It creates one node — head = <code>1</code>, tail = <code>lazy (from(2))</code>. The tail is a recipe, not a value.</p>
+    <pre style="margin:0.7em 0;">DCons(1, lazy ──► DCons(2, lazy ──► DCons(3, lazy ──► ...)))
+              ↑                  ↑
+          not yet computed   not yet computed</pre>
+    <p>Each arrow is a deferred computation. <code>take</code> forces one node at a time, stopping when it has enough.</p>
+    <p style="margin-top:0.8em;">You can also filter lazily — only tested elements accumulate:</p>
+    <pre><span class="kw">let</span> odds = <span class="ty">DelayList</span>.<span class="fn">filter</span>(x -> x <span class="kw">mod</span> <span class="num">2</span> != <span class="num">0</span>, <span class="ty">DelayList</span>.<span class="fn">from</span>(<span class="num">1</span>))
+<span class="fn">println</span>(<span class="ty">DelayList</span>.<span class="fn">take</span>(<span class="num">5</span>, odds))   <span class="cm">// 1 :: 3 :: 5 :: 7 :: 9 :: Nil</span></pre>
+    <p>You describe a potentially unbounded computation. The runtime computes exactly as much as you ask for — no more.</p>
+  </div>
+
+  <!-- Slide 9: The Reveal -->
+  <div class="slide">
+    <h2>The Reveal: Effect Handlers Were Delaying All Along</h2>
+    <p>Recall the <code>Ask</code> handler from the previous chapter. Something important is happening at step 2:</p>
+    <div class="two-col">
+      <div>
+        <pre style="font-size:0.82rem;"><span class="kw">def</span> <span class="fn">main</span>(): <span class="ty">Unit</span> \ <span class="eff">IO</span> =
+    <span class="kw">run</span> {
+        <span class="fn">greetUser</span>()
+    } <span class="kw">with handler</span> <span class="ty">Ask</span> {
+        <span class="kw">def</span> <span class="fn">ask</span>(prompt, resume) =
+            <span class="fn">println</span>(prompt);
+            <span class="kw">let</span> answer = <span class="ty">Console</span>.<span class="fn">readln</span>();
+            <span class="fn">resume</span>(answer)
+    }</pre>
+      </div>
+      <div>
+        <h3>Execution flow</h3>
+        <ol style="list-style:decimal; padding-left:1.2em; color:#eaeaea; line-height:1.9; font-size:0.92rem;">
+          <li><code>greetUser</code> calls <code>Ask.ask(...)</code></li>
+          <li>Execution <strong>PAUSES</strong> — the rest is suspended</li>
+          <li>Handler prints the prompt</li>
+          <li>Handler reads input — say, <code>"Alice"</code></li>
+          <li>Handler calls <code>resume("Alice")</code></li>
+          <li><code>greetUser</code> <strong>RESUMES</strong> with <code>name = "Alice"</code></li>
+          <li><code>println("Hello, Alice!")</code> runs</li>
+        </ol>
+      </div>
+    </div>
+  </div>
+
+  <!-- Slide 10: resume is a Thunk -->
+  <div class="slide">
+    <h2><code>resume</code> Is a Thunk</h2>
+    <blockquote>When <code>Ask.ask(...)</code> fires, the rest of <code>greetUser()</code> — every line after that call — is packaged up as a <code>Unit -&gt; a</code> function and handed to the handler as <code>resume</code>. The handler holds the rest of the program. It can call it whenever it wants.</blockquote>
+    <p style="margin-top:0.8em;">The three mechanisms are the same idea at different scales:</p>
+    <table style="margin-top:0.5em;">
+      <tr><th>Mechanism</th><th>What is delayed</th><th>Who holds the delay</th></tr>
+      <tr><td>Thunk <code>() -&gt; a</code></td><td>A single expression</td><td>You (the caller)</td></tr>
+      <tr><td><code>Lazy[T]</code></td><td>A single pure expression</td><td>The runtime</td></tr>
+      <tr><td>Effect handler</td><td>The rest of the program</td><td>The handler</td></tr>
+    </table>
+    <p style="margin-top:0.7em; color:#a0a0c0;">Effect handlers are the most powerful form — the delay covers not one expression but the entire remaining computation, all the way to the end of the <code>run</code> block.</p>
+  </div>
+
+  <!-- Slide 11: Controlling the Delay — Overview -->
+  <div class="slide">
+    <h2>Controlling the Delay</h2>
+    <p>The handler receives <code>resume</code> — the suspended computation — and decides what to do with it:</p>
+    <table style="margin:0.8em 0;">
+      <tr><th>Handler choice</th><th>Effect</th><th>Analogy</th></tr>
+      <tr><td><strong>Call <code>resume</code> once, immediately</strong></td><td>Normal flow — program continues</td><td>Open the envelope now</td></tr>
+      <tr><td><strong>Never call <code>resume</code></strong></td><td>Abort — computation discarded</td><td>Shred the envelope</td></tr>
+      <tr><td><strong>Call <code>resume</code> multiple times</strong></td><td>Fork — runs once per call</td><td>Photocopy and open each copy</td></tr>
+    </table>
+    <p style="margin-top:0.4em;">The pattern is always the same. Only the handler's choice changes.</p>
+  </div>
+
+  <!-- Slide 12: Pattern 1 — Immediate resume -->
+  <div class="slide">
+    <h2>Pattern 1 — Immediate Resume</h2>
+    <p>The most common pattern: handle the effect, then hand control back immediately.</p>
+    <pre style="margin:0.7em 0;"><span class="kw">eff</span> <span class="ty">Greet</span> {
+    <span class="kw">def</span> <span class="fn">hello</span>(name: <span class="ty">String</span>): <span class="ty">Unit</span>
+}
+
+<span class="kw">def</span> <span class="fn">main</span>(): <span class="ty">Unit</span> \ <span class="eff">IO</span> =
+    <span class="kw">run</span> {
+        <span class="ty">Greet</span>.<span class="fn">hello</span>(<span class="str">"Alice"</span>);
+        <span class="ty">Greet</span>.<span class="fn">hello</span>(<span class="str">"Bob"</span>)
+    } <span class="kw">with handler</span> <span class="ty">Greet</span> {
+        <span class="kw">def</span> <span class="fn">hello</span>(name, resume) =
+            <span class="fn">println</span>(<span class="str">"Hello, ${name}!"</span>);
+            <span class="fn">resume</span>()   <span class="cm">// continue immediately</span>
+    }</pre>
+    <p>The handler prints the greeting, then calls <code>resume()</code>. The program runs in a straight line. Both calls fire one after the other. Nothing surprising happens.</p>
+  </div>
+
+  <!-- Slide 13: Pattern 2 — Abort -->
+  <div class="slide">
+    <h2>Pattern 2 — Never Resume (Abort)</h2>
+    <p>A <code>Void</code> return type signals that the computation <strong>cannot resume</strong>. The handler receives <code>_resume</code> — but intentionally never calls it.</p>
+    <div class="two-col">
+      <div>
+        <pre style="font-size:0.85rem;"><span class="kw">eff</span> <span class="ty">Fail</span> {
+    <span class="kw">def</span> <span class="fn">fail</span>(msg: <span class="ty">String</span>): <span class="ty">Void</span>
+}</pre>
+        <p style="font-size:0.9rem;"><code>Void</code> has no values — there is literally nothing to pass to a continuation. The computation cannot resume from that point.</p>
+      </div>
+      <div>
+        <pre style="font-size:0.85rem;"><span class="kw">def</span> <span class="fn">main</span>(): <span class="ty">Unit</span> \ <span class="eff">IO</span> =
+    <span class="kw">run</span> {
+        <span class="fn">println</span>(<span class="str">"Step 1"</span>);
+        <span class="ty">Fail</span>.<span class="fn">fail</span>(<span class="str">"something went wrong"</span>);
+        <span class="fn">println</span>(<span class="str">"Step 2"</span>)   <span class="cm">// never runs</span>
+    } <span class="kw">with handler</span> <span class="ty">Fail</span> {
+        <span class="kw">def</span> <span class="fn">fail</span>(msg, _resume) =
+            <span class="fn">println</span>(<span class="str">"Aborted: ${msg}"</span>)
+    }</pre>
+      </div>
+    </div>
+    <p style="margin-top:0.5em;">This is a typed, composable exception — no <code>throw</code>, no <code>try</code>, no <code>catch</code>. Just an effect whose handler chooses not to resume.</p>
+  </div>
+
+  <!-- Slide 14: Pattern 3 — Multiple resume -->
+  <div class="slide">
+    <h2>Pattern 3 — Call Resume Multiple Times (Fork)</h2>
+    <div class="two-col">
+      <div>
+        <pre style="font-size:0.82rem;"><span class="kw">eff</span> <span class="ty">Flip</span> {
+    <span class="kw">def</span> <span class="fn">flip</span>(): <span class="ty">Bool</span>
+}
+
+<span class="kw">def</span> <span class="fn">main</span>(): <span class="ty">Unit</span> \ <span class="eff">IO</span> =
+    <span class="kw">run</span> {
+        <span class="kw">let</span> a = <span class="ty">Flip</span>.<span class="fn">flip</span>();
+        <span class="kw">let</span> b = <span class="ty">Flip</span>.<span class="fn">flip</span>();
+        <span class="fn">println</span>(<span class="str">"${a}, ${b}"</span>)
+    } <span class="kw">with handler</span> <span class="ty">Flip</span> {
+        <span class="kw">def</span> <span class="fn">flip</span>(_, resume) =
+            <span class="fn">resume</span>(<span class="kw">true</span>);    <span class="cm">// run rest with true</span>
+            <span class="fn">resume</span>(<span class="kw">false</span>)   <span class="cm">// run rest with false</span>
+    }
+<span class="cm">// Prints: true, true</span>
+<span class="cm">//         true, false</span>
+<span class="cm">//         false, true</span>
+<span class="cm">//         false, false</span></pre>
+      </div>
+      <div>
+        <h3>How it works</h3>
+        <p>Calling <code>resume</code> multiple times does not loop. It runs the <em>rest of the program</em> multiple times from the same point — each time with a different value.</p>
+        <p style="margin-top:0.6em;"><code>resume(true)</code> runs the block with <code>a = true</code>. That hits the second <code>flip</code>, producing <code>"true, true"</code> and <code>"true, false"</code>.</p>
+        <p style="margin-top:0.6em;">Then <code>resume(false)</code> runs the block again with <code>a = false</code>, producing the remaining two combinations.</p>
+        <p style="margin-top:0.6em; color:#a0a0c0;">This is how effect handlers express search, backtracking, and non-determinism — with no special syntax.</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- Slide 15: Real Problem 1 — Infinite sequences -->
+  <div class="slide">
+    <h2>Real Problem 1: Infinite Sequences</h2>
+    <p>You want the first five prime numbers. The naive approach — generate all primes first — either runs forever or requires guessing an upper bound. Lazy lists make the problem disappear:</p>
+    <pre style="margin:0.7em 0;"><span class="kw">def</span> <span class="fn">isPrime</span>(n: <span class="ty">Int32</span>): <span class="ty">Bool</span> =
+    n >= <span class="num">2</span> <span class="kw">and not</span> <span class="ty">List</span>.<span class="fn">exists</span>(d -> n <span class="kw">mod</span> d == <span class="num">0</span>, <span class="ty">List</span>.<span class="fn">range</span>(<span class="num">2</span>, n))
+
+<span class="kw">def</span> <span class="fn">main</span>(): <span class="ty">Unit</span> \ <span class="eff">IO</span> =
+    <span class="kw">let</span> nats   = <span class="ty">DelayList</span>.<span class="fn">from</span>(<span class="num">2</span>)                 <span class="cm">// 2, 3, 4, 5, ... forever</span>
+    <span class="kw">let</span> primes = <span class="ty">DelayList</span>.<span class="fn">filter</span>(isPrime, nats)    <span class="cm">// filtered — still lazy</span>
+    <span class="kw">let</span> first5 = <span class="ty">DelayList</span>.<span class="fn">take</span>(<span class="num">5</span>, primes)          <span class="cm">// forces exactly 5</span>
+    <span class="fn">println</span>(first5)   <span class="cm">// 2 :: 3 :: 5 :: 7 :: 11 :: Nil</span></pre>
+    <p><code>nats</code> is a description, not a list. <code>primes</code> is also a description. Nothing is computed until <code>take(5, ...)</code> forces exactly five elements — one at a time, stopping the moment five pass the test.</p>
+  </div>
+
+  <!-- Slide 16: Real Problem 2 — Retry logic -->
+  <div class="slide">
+    <h2>Real Problem 2: Retry Logic</h2>
+    <p>Business logic that calls an external service — retried up to N times, without a single change to the business logic itself:</p>
+    <div class="two-col">
+      <div>
+        <h3>Business logic — unchanged</h3>
+        <pre style="font-size:0.82rem;"><span class="kw">eff</span> <span class="ty">Fetch</span> {
+    <span class="kw">def</span> <span class="fn">fetch</span>(url: <span class="ty">String</span>): <span class="ty">String</span>
+}
+
+<span class="kw">def</span> <span class="fn">reportWeather</span>(url: <span class="ty">String</span>):
+    <span class="ty">Unit</span> \ {<span class="eff">Fetch</span>, <span class="eff">IO</span>} =
+    <span class="kw">let</span> data = <span class="ty">Fetch</span>.<span class="fn">fetch</span>(url);
+    <span class="fn">println</span>(<span class="str">"Weather: ${data}"</span>)</pre>
+      </div>
+      <div>
+        <h3>Retry handler — separate concern</h3>
+        <pre style="font-size:0.82rem;"><span class="kw">def</span> <span class="fn">withRetry</span>(n: <span class="ty">Int32</span>, action: <span class="ty">Unit</span> -> <span class="ty">Unit</span> \ {<span class="eff">Fetch</span>, <span class="eff">IO</span>}):
+    <span class="ty">Unit</span> \ <span class="eff">IO</span> =
+    <span class="kw">if</span> (n <= <span class="num">0</span>) <span class="fn">println</span>(<span class="str">"Exhausted."</span>)
+    <span class="kw">else</span>
+        <span class="kw">run</span> { <span class="fn">action</span>() }
+        <span class="kw">with handler</span> <span class="ty">Fetch</span> {
+            <span class="kw">def</span> <span class="fn">fetch</span>(url, _resume) =
+                <span class="fn">println</span>(<span class="str">"Retrying... ${n - 1} left"</span>);
+                <span class="fn">withRetry</span>(n - <span class="num">1</span>, action)
+        }
+
+<span class="kw">def</span> <span class="fn">main</span>(): <span class="ty">Unit</span> \ <span class="eff">IO</span> =
+    <span class="fn">withRetry</span>(<span class="num">3</span>, () -> <span class="fn">reportWeather</span>(<span class="str">"https://example.com/weather"</span>))</pre>
+      </div>
+    </div>
+    <p style="margin-top:0.5em;">The handler does <em>not</em> call <code>_resume</code> — it abandons the current attempt and starts fresh. Swap in a different handler and <code>reportWeather</code> never changes.</p>
+  </div>
+
+  <!-- Slide 17: Summary -->
+  <div class="slide">
+    <h2>Summary</h2>
+    <table style="margin:0.6em 0;">
+      <tr><th>Mechanism</th><th>Syntax</th><th>Evaluates once?</th><th>Can have effects?</th><th>Power</th></tr>
+      <tr><td>Thunk</td><td><code>() -&gt; expr</code></td><td>No</td><td>Yes</td><td>Low</td></tr>
+      <tr><td><code>Lazy[T]</code></td><td><code>lazy (expr)</code> / <code>force x</code></td><td>Yes</td><td>No — pure only</td><td>Medium</td></tr>
+      <tr><td>Effect handler</td><td><code>run { } with handler</code></td><td>Configurable</td><td>Yes</td><td>High</td></tr>
+    </table>
+    <p style="margin-top:0.6em;">Delay is a spectrum. Thunks are simple and universal — any language, any expression, no restrictions. <code>Lazy[T]</code> adds memoization and compiler-enforced purity for values that are expensive to compute and used in many places. Effect handlers are the full-power form: the suspended computation covers the entire rest of the program, and the handler can call it zero, once, or many times.</p>
+    <p style="margin-top:0.5em;">Flix gives you all three. The type system tells you which is in play at every point.</p>
+  </div>
+
+</div>
+
+<div class="counter" id="counter">1 / 17</div>
+
+<script>
+const slides = Array.from(document.querySelectorAll('.slide'));
+let current = 0;
+
+function show(n) {
+  if (slides.length === 0) return;
+  slides[current].classList.remove('active');
+  current = Math.max(0, Math.min(n, slides.length - 1));
+  slides[current].classList.add('active');
+  document.getElementById('counter').textContent = `${current + 1} / ${slides.length}`;
+}
+
+document.addEventListener('keydown', e => {
+  const navKeys = ['ArrowRight', 'ArrowLeft', ' ', 'Home', 'End'];
+  if (!navKeys.includes(e.key)) return;
+  e.preventDefault();
+  if (e.key === 'ArrowRight' || e.key === ' ') show(current + 1);
+  if (e.key === 'ArrowLeft')                    show(current - 1);
+  if (e.key === 'Home')                         show(0);
+  if (e.key === 'End')                          show(slides.length - 1);
+});
+
+let touchX = 0;
+document.addEventListener('touchstart', e => touchX = e.touches[0].clientX);
+document.addEventListener('touchend', e => {
+  const dx = e.changedTouches[0].clientX - touchX;
+  if (Math.abs(dx) > 50) show(current + (dx < 0 ? 1 : -1));
+});
+
+if (slides.length > 0) {
+  document.getElementById('counter').textContent = `1 / ${slides.length}`;
+}
+</script>
+</body>
+</html>
