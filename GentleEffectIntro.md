@@ -35,25 +35,8 @@ def greetAndAdd(x: Int32, y: Int32): Int32 \ IO =
 
 This function does the same arithmetic, but it also **prints a message** to the screen. That
 printing is a side effect: it reaches outside the function and changes something in the world
-(the contents of the terminal).
-
-Here is a mental model for the difference:
-
-```mermaid
-flowchart LR
-    subgraph pure["Pure function"]
-        direction LR
-        in1["x, y"] --> add["add(x, y)"] --> out1["x + y"]
-    end
-
-    subgraph impure["Impure function"]
-        direction LR
-        in2["x, y"] --> greet["greetAndAdd(x, y)"] --> out2["x + y"]
-        greet -. "println(...)" .-> world(["🖥 Terminal"])
-    end
-```
-
-The dashed arrow represents the side effect — an interaction with the world outside the function.
+(the contents of the terminal). The `\ IO` in the signature is how Flix marks that fact — but
+we will get to that shortly.
 
 ---
 
@@ -109,15 +92,8 @@ A function with **no side effects** is called **pure**. Pure functions have a re
 > **Given the same inputs, a pure function always returns the same output — and does nothing else.**
 
 This makes them extremely easy to reason about. You can think of a pure function the same way
-you think of a mathematical function: `f(3)` is always `f(3)`, no matter when or how many times
-you call it.
-
-```mermaid
-flowchart LR
-    input["Input: 3, 4"] --> f["add(3, 4)"] --> output["Output: 7"]
-    note["Call it once, call it a million times.\nThe result is always 7.\nNothing else happens."]
-    style note fill:#16213e,stroke:#1e4a8a,color:#a0a0c0
-```
+you think of a mathematical function: `add(3, 4)` is always `7`, no matter when or how many times
+you call it. Call it once, call it a million times, the result is the same and nothing else happens.
 
 Because pure functions are predictable:
 
@@ -151,23 +127,19 @@ def greet(name: String): Unit \ IO =
 ```
 
 The `\ IO` after the return type is the **effect annotation**. It is not a comment. It is part of
-the type. The compiler reads it and enforces it.
+the type. Here is how to read the full signature:
 
-Think of `Int32` as the type of the *return value* and `\ IO` as the type of the *effects* the
-function is allowed to perform:
-
-```mermaid
-flowchart LR
-    greet["def greet(name: String): Unit \\ IO"]
-
-    greet --> ret["Return type: Unit\n(returns nothing useful)"]
-    greet --> eff["Effect: IO\n(performs I/O)"]
-
-    style ret fill:#16213e,stroke:#1e4a8a,color:#8be9fd
-    style eff fill:#16213e,stroke:#1e4a8a,color:#ffb86c
+```
+def greet  (name: String)  :  Unit   \  IO
+    ──┬──   ──────┬──────     ──┬──  ─  ─┬─
+      │           │             │         └─ effect: performs I/O
+      │           │             └─ return type: returns nothing useful
+      │           └─ parameter
+      └─ function name
 ```
 
-If you try to call `println` inside a function that lacks `\ IO`, **the compiler rejects it**:
+The compiler reads the effect annotation and enforces it. If you try to call `println` inside a
+function that lacks `\ IO`, **the compiler rejects it**:
 
 ```flix
 // This does not compile!
@@ -204,22 +176,12 @@ The curly braces `{ }` denote a set of effects. You can think of the effect set 
 **list of permissions**: this function is allowed to do I/O, allowed to use the network,
 and nothing else.
 
-```mermaid
-flowchart TD
-    fn["fetchAndLog"] --> set["Effect set: { IO, Net }"]
-    set --> io["IO permission\n(can print, read stdin, etc.)"]
-    set --> net["Net permission\n(can open sockets, fetch URLs, etc.)"]
-
-    style io fill:#16213e,stroke:#1e4a8a,color:#ffb86c
-    style net fill:#16213e,stroke:#1e4a8a,color:#ffb86c
-```
-
 An empty effect set `\ { }` means the function is pure. Flix lets you write this explicitly,
 though it is more common to just omit the annotation:
 
 ```flix
 def inc(x: Int32): Int32 \ { } = x + 1   // explicitly pure
-def inc(x: Int32): Int32 = x + 1          // same thing
+def inc(x: Int32): Int32 = x + 1          // same thing, preferred
 ```
 
 ---
@@ -228,11 +190,13 @@ def inc(x: Int32): Int32 = x + 1          // same thing
 
 Here is something important: **if you call an impure function, your function becomes impure too**.
 
-Imagine a call chain:
+Consider a chain of calls:
 
-```mermaid
-flowchart LR
-    main["main()\n\\ IO"] -->|calls| send["sendReport()\n\\ IO"] -->|calls| fmt["formatReport()\npure"] & log["logToFile()\n\\ IO"]
+```
+main()              -- calls sendReport, so: \ IO
+  └─ sendReport()   -- calls logToFile, so: \ IO
+       ├─ formatReport()   -- pure, no effects
+       └─ logToFile()      -- writes a file: \ IO
 ```
 
 `main` performs I/O because it calls `sendReport`, which calls `logToFile`, which writes to a file.
@@ -240,9 +204,7 @@ The I/O effect **propagates upward** through the call chain. Every function that
 indirectly) performs I/O must declare `\ IO`.
 
 This is not a burden — it is the feature. By looking at any function's signature, you can
-**immediately know** whether it or anything it calls touches the outside world.
-
-Compare:
+**immediately know** whether it or anything it calls touches the outside world:
 
 ```flix
 def processData(data: List[Int32]): List[Int32]          // purely transforms data
@@ -258,8 +220,8 @@ No need to read the bodies. The signatures tell the whole story.
 Consider `List.map`. It applies a function to every element of a list:
 
 ```flix
-List.map(x -> x + 1, List#{1, 2, 3})   // pure: just adds 1 to each element
-List.map(x -> { println(x); x }, myList)   // impure: prints each element
+List.map(x -> x + 1, List#{1, 2, 3})              // pure: just adds 1 to each element
+List.map(x -> { println(x); x }, myList)           // impure: prints each element
 ```
 
 Should `List.map` itself be pure or impure? **It depends on the function you pass to it.**
@@ -271,25 +233,17 @@ variable* `ef` that gets filled in based on the argument:
 def map(f: a -> b \ ef, l: List[a]): List[b] \ ef
 ```
 
-Read this as: "`map` has whatever effect `f` has." If `f` is pure, `map` is pure. If `f`
-performs I/O, `map` performs I/O.
+Read this as: "`map` has whatever effect `f` has." The effect variable `ef` is filled in
+automatically at each call site:
 
-```mermaid
-flowchart LR
-    pureFn["f = x -> x + 1\nEffect: { }"] --> map1["List.map(f, l)\nEffect: { }"]
-    impureFn["f = x -> { println(x); x }\nEffect: IO"] --> map2["List.map(f, l)\nEffect: IO"]
-
-    style pureFn fill:#16213e,stroke:#50fa7b,color:#50fa7b
-    style map1 fill:#16213e,stroke:#50fa7b,color:#50fa7b
-    style impureFn fill:#16213e,stroke:#ffb86c,color:#ffb86c
-    style map2 fill:#16213e,stroke:#ffb86c,color:#ffb86c
-```
+| Function passed to `map` | Effect of `f` | Effect of `map` |
+|---|---|---|
+| `x -> x + 1` | `{ }` (pure) | `{ }` (pure) |
+| `x -> { println(x); x }` | `IO` | `IO` |
 
 This means you get **one implementation of `List.map`** that works correctly for both pure and
-impure functions. The effect system automatically tracks the right answer.
-
-Effect polymorphism is what makes higher-order functions compose naturally with the effect system.
-You do not need a pure version and an impure version of every library function — one suffices.
+impure functions. The effect system automatically tracks the right answer. You do not need a
+pure version and an impure version of every library function — one suffices.
 
 ---
 
@@ -351,21 +305,15 @@ Here, the handler for `Ask` says: "When `ask` is called, print the prompt, read 
 terminal, and hand that line back to the program."
 
 The `resume` argument is the **continuation** — it represents the rest of the program that was
-waiting for the answer. Calling `resume(answer)` is how the handler gives the effect its result
-and lets the program continue.
+waiting for the answer. Here is the sequence of what happens at runtime:
 
-```mermaid
-sequenceDiagram
-    participant P as greetUser()
-    participant H as Ask handler
-    participant W as World (terminal)
-
-    P->>H: Ask.ask("What is your name?")
-    H->>W: println("What is your name?")
-    W-->>H: user types "Alice"
-    H->>P: resume("Alice")
-    P->>W: println("Hello, Alice!")
-```
+1. `greetUser` calls `Ask.ask("What is your name?")`
+2. The handler intercepts the call
+3. The handler prints `"What is your name?"`
+4. The handler reads the user's input — say, `"Alice"`
+5. The handler calls `resume("Alice")`, handing the answer back
+6. `greetUser` continues with `name = "Alice"`
+7. `greetUser` calls `println("Hello, Alice!")`
 
 The handler eliminates the effect. After the `run { } with handler Ask { }` block, the `Ask`
 effect is gone — handled and resolved. `main` is left with only `\ IO` (from the `println`
@@ -419,31 +367,25 @@ def divide(x: Int32, y: Int32): Int32 \ DivByZero =
     else x / y
 ```
 
-`Void` is a type with no values — so there is nothing for the handler to pass to `resume`, and
-the computation cannot continue from that point. The handler instead decides what to do next:
+`Void` is a type with no values — so there is literally nothing for the handler to pass to
+`resume`, and the computation cannot continue from that point. The handler instead decides what
+to do next:
 
 ```flix
 def main(): Unit \ IO =
     run {
         println(divide(10, 2));   // prints 5
-        println(divide(10, 0))    // raises DivByZero
+        println(divide(10, 0))    // raises DivByZero — second println never runs
     } with handler DivByZero {
         def divByZero(_resume) =
             println("Error: division by zero")
     }
 ```
 
-```mermaid
-flowchart TD
-    A["divide(10, 2)"] --> B["y != 0, return 5"]
-    C["divide(10, 0)"] --> D["y == 0, call DivByZero.divByZero()"]
-    D --> E["Handler intercepts"]
-    E --> F["println: Error: division by zero"]
-    E -. "resume not called\n(computation ends here)" .-> G["(discarded)"]
-
-    style G fill:#16213e,stroke:#444,color:#444
-    style F fill:#16213e,stroke:#e94560,color:#e94560
-```
+When `divide(10, 0)` raises `DivByZero`, the handler intercepts it and prints the error message.
+The `_resume` argument exists in the handler signature but cannot be called — the underscore
+prefix signals that it is intentionally ignored. Execution does not return to the `run` block;
+the handler is the end of the road for that computation.
 
 This is equivalent to a checked exception — but composable, first-class, and tracked in the type
 system without any special `throws` declaration or try/catch syntax baked into the language.
@@ -451,24 +393,6 @@ system without any special `throws` declaration or try/catch syntax baked into t
 ---
 
 ## 13. Putting It All Together
-
-Here is a summary of the concepts in order:
-
-```mermaid
-flowchart TD
-    A["Side effects\n(printing, files, network, exceptions...)"]
-    B["Pure functions\n(no effects — predictable, testable)"]
-    C["Effect annotations\n(effects in the type signature)"]
-    D["Effect polymorphism\n(higher-order functions adapt to their argument's effects)"]
-    E["User-defined effects\n(declare what an effect is)"]
-    F["Handlers\n(define how an effect is resolved)"]
-
-    A --> B
-    B --> C
-    C --> D
-    D --> E
-    E --> F
-```
 
 | Concept | In one sentence |
 |---|---|
