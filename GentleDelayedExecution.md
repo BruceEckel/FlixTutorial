@@ -408,5 +408,129 @@ control of this.
 ---
 
 ## 6. Controlling the Delay
+
+The most common pattern: the handler does its work, then calls `resume` immediately.
+
+```flix
+eff Greet {
+    def hello(name: String): Unit
+}
+
+def main(): Unit \ IO =
+    run {
+        Greet.hello("Alice");
+        Greet.hello("Bob")
+    } with handler Greet {
+        def hello(name, resume) =
+            println("Hello, ${name}!");
+            resume()
+    }
+```
+
+The handler prints the greeting, then immediately calls `resume()` to continue. The program runs
+in a straight line. This is how most handlers work — they handle the effect, then hand control
+back immediately. Nothing surprising happens: the two calls fire one after the other, the handler
+runs for each, and the program ends.
+
+But the handler is not required to call `resume` at all.
+
+### Pattern 2 — Never call resume (abort)
+
+```flix
+eff Fail {
+    def fail(msg: String): Void
+}
+
+def main(): Unit \ IO =
+    run {
+        println("Step 1");
+        Fail.fail("something went wrong");
+        println("Step 2")   // never runs
+    } with handler Fail {
+        def fail(msg, _resume) =
+            println("Aborted: ${msg}")
+    }
+```
+
+The `Void` return type on `def fail(msg: String): Void` is the signal. `Void` is a type with no
+values — there is literally nothing to pass back to a continuation, so the computation cannot
+resume from that point. The handler receives `_resume` in its argument list, but the leading
+underscore marks it as intentionally unused.
+
+When `Fail.fail(...)` fires, the rest of the `run` block is packaged up and handed to the handler
+— just as always. But the handler simply prints the error message and returns. It never calls
+`_resume`. The suspended computation, including `println("Step 2")`, is discarded.
+
+This is a typed, composable exception. It has no special syntax — no `throw`, no `try`, no
+`catch`. It is just an effect operation whose return type is `Void`, handled by a handler that
+chooses not to resume.
+
+### Pattern 3 — Call resume multiple times (fork/backtrack)
+
+The handler can also call `resume` more than once. Each call picks up the same suspended
+computation and runs it forward from the same point — but with a different value.
+
+```flix
+eff Flip {
+    def flip(): Bool
+}
+
+def main(): Unit \ IO =
+    run {
+        let a = Flip.flip();
+        let b = Flip.flip();
+        println("${a}, ${b}")
+    } with handler Flip {
+        def flip(_, resume) =
+            resume(true);
+            resume(false)
+    }
+// Prints:
+// true, true
+// true, false
+// false, true
+// false, false
+```
+
+Tracing through this carefully is worth the effort.
+
+When the first `Flip.flip()` fires, the handler is called. The suspended computation — everything
+from `let a = ...` onward — is held in `resume`. The handler calls `resume(true)` first. This
+runs the rest of the `run` block with `a = true`. That "rest of the block" includes a second
+`Flip.flip()`, so the handler is invoked again. This time, calling `resume(true)` produces
+`"true, true"` and calling `resume(false)` produces `"true, false"`.
+
+Then control returns from the first `resume(true)` call and the handler continues to its next
+line: `resume(false)`. This runs the rest of the block again, but now with `a = false`. The
+second `Flip.flip()` fires again, and the handler produces `"false, true"` and `"false, false"`.
+
+The result is all four combinations, in that order.
+
+Calling `resume` multiple times does not loop in the conventional sense. It does not repeat a
+block of code in a `for` or `while` loop. Instead, it literally runs the rest of the program
+multiple times from the same point, each time with a different value threaded through. The handler
+is not a loop body — it is a fork in the road.
+
+This is how effect handlers can express search, backtracking, and non-determinism without any
+special syntax beyond the effect and handler themselves.
+
+### What the handler controls
+
+The handler is the gatekeeper of the delay. It receives the suspended computation as `resume` and
+decides three things: whether the suspended computation ever runs, how many times it runs, and
+with what value it continues each time.
+
+| Handler choice | Effect |
+|---|---|
+| Call `resume` once, immediately | Normal flow — the computation continues as written |
+| Never call `resume` | Abort — the suspended computation is discarded |
+| Call `resume` multiple times | Fork — the computation runs once for each call |
+
+This single decision — what to do with `resume` — is how effect handlers express exception
+handling, dependency injection, backtracking, and more. The pattern is always the same; only the
+handler's choice changes.
+
+---
+
 ## 7. Real Problems That Need Delay
 ## 8. Summary
