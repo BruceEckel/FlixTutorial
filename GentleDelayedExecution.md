@@ -113,6 +113,100 @@ declared in the type, not hidden in the implementation.
 ---
 
 ## 3. `lazy` and `force`: Built-In Lazy Evaluation
+
+Thunks are wonderfully simple, but they have the limitation we saw at the end of Section 2: every
+time you call a thunk, it runs the computation from scratch. Call it three times, and you do the
+work three times. There is no memory of the previous answer.
+
+Flix's built-in `Lazy[T]` type solves this. Like a thunk, it defers an expression so it does not
+run immediately. Unlike a thunk, it remembers the result the first time it is computed — and every
+subsequent access returns that remembered value without re-running anything. This property is
+called **memoization**.
+
+### Basic syntax
+
+The two keywords are `lazy` and `force`:
+
+```flix
+let x: Lazy[Int32] = lazy (1 + 2)   // not evaluated yet
+let result: Int32 = force x          // evaluates now, result is 3
+let again: Int32 = force x           // returns 3 immediately — no recalculation
+```
+
+`lazy (expr)` wraps the expression in a `Lazy[T]` container without evaluating it. The
+parentheses are required. `force x` unwraps the container: if the expression has not run yet,
+it runs now; if it has already run, the cached value is returned directly.
+
+### Three properties, one at a time
+
+**Delayed.** The expression inside `lazy (...)` does not run when you write it. It runs only
+when you call `force` on it. Until that moment, the container sits there like an unopened box —
+the instructions are stored, but no computation has taken place.
+
+**Memoized.** Once forced, the result is cached inside the container. Force it ten times and
+the expression runs exactly once. All ten `force` calls after the first simply read back the
+stored value. This is the key advantage over a thunk.
+
+**Pure only.** The expression inside `lazy` must have no side effects. The Flix compiler enforces
+this — it is not just a convention. If you try to put a `println` inside a `lazy`, the compiler
+rejects it:
+
+```flix
+// This does NOT compile — intentionally wrong to show the error
+let bad: Lazy[Unit] = lazy (println("hi"))
+// Error: expected pure expression, but expression has effect: IO
+```
+
+The reason this restriction exists follows directly from memoization. If the expression could
+have side effects, the number of times those effects occur would depend on whether the value
+had been forced before — a subtle and hard-to-predict behaviour. By requiring purity, Flix
+makes the guarantee clean: the expression runs at most once, and nothing else in the world
+changes as a side effect of that evaluation.
+
+### When memoization matters: an example
+
+Imagine you have an expensive value — something that takes real work to compute — and you need
+to refer to it in several different places. With a thunk, every reference re-runs the work:
+
+```flix
+// Thunk: runs the full computation each time
+let sumThunk: Unit -> Int32 \ {} = () -> List.range(0, 1_000_000) |> List.sum
+
+let a = sumThunk()   // runs List.range and List.sum — full work
+let b = sumThunk()   // runs it again — full work again
+let c = sumThunk()   // and again
+```
+
+With `Lazy[T]`, the computation happens at most once:
+
+```flix
+// Lazy: runs once, remembered forever
+let sumLazy: Lazy[Int32] = lazy (List.range(0, 1_000_000) |> List.sum)
+
+let a = force sumLazy   // runs List.range and List.sum — once
+let b = force sumLazy   // returns cached result immediately
+let c = force sumLazy   // same cached result, no work done
+```
+
+`a`, `b`, and `c` all receive the same value, but the expensive work only happens the first
+time `force` is called. This is exactly the situation `Lazy[T]` is designed for: a pure,
+costly computation that is needed in multiple places.
+
+### Thunk vs. `Lazy[T]` at a glance
+
+| Feature                | Thunk `() -> a`      | `Lazy[T]`        |
+|------------------------|----------------------|------------------|
+| Evaluate later?        | Yes                  | Yes              |
+| Evaluates once?        | No (runs each call)  | Yes (memoized)   |
+| Can have effects?      | Yes                  | No (pure only)   |
+
+The choice between them comes down to what you need. If you want to delay an effectful
+computation — one that prints, reads input, or modifies state — a thunk is your tool. If you
+want to delay a pure computation and share its result across multiple consumers without
+recomputing it, `Lazy[T]` is exactly right.
+
+---
+
 ## 4. Lazy Data Structures: `DelayList`
 ## 5. The Reveal: Effect Handlers Were Delaying All Along
 ## 6. Controlling the Delay
