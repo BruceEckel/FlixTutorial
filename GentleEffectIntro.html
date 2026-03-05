@@ -1,0 +1,522 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>A Gentle Introduction to Effect Systems</title>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  font-family: 'Segoe UI', system-ui, sans-serif;
+  background: #1a1a2e;
+  color: #eaeaea;
+  height: 100vh;
+  overflow: hidden;
+}
+
+.deck {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+}
+
+.slide {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: flex-start;
+  padding: 56px 80px;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.3s ease;
+}
+
+.slide.active {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.slide.title {
+  align-items: center;
+  text-align: center;
+}
+
+.slide.title h1 {
+  font-size: 3rem;
+  color: #e94560;
+  margin-bottom: 0.5em;
+  line-height: 1.2;
+}
+
+.slide.title .subtitle {
+  font-size: 1.25rem;
+  color: #a0a0c0;
+  max-width: 640px;
+}
+
+.slide h2 {
+  font-size: 1.9rem;
+  color: #e94560;
+  margin-bottom: 0.55em;
+  border-bottom: 2px solid #e9456033;
+  padding-bottom: 0.3em;
+  width: 100%;
+}
+
+.slide h3 {
+  font-size: 1.05rem;
+  color: #a0a0c0;
+  margin: 0.7em 0 0.25em;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+}
+
+p {
+  color: #c0c0d8;
+  line-height: 1.6;
+  margin: 0.5em 0;
+}
+
+ul {
+  list-style: none;
+  margin: 0.4em 0;
+}
+
+ul li {
+  padding: 0.3em 0 0.3em 1.2em;
+  position: relative;
+  font-size: 1.05rem;
+  line-height: 1.5;
+  color: #eaeaea;
+}
+
+ul li::before {
+  content: '▸';
+  color: #e94560;
+  position: absolute;
+  left: 0;
+}
+
+strong { color: #e2b96f; }
+em { color: #a0a0c0; font-style: italic; }
+
+blockquote {
+  border-left: 3px solid #e94560;
+  padding: 0.5em 1em;
+  margin: 0.7em 0;
+  color: #e2b96f;
+  font-size: 1.1rem;
+  font-style: italic;
+  background: #16213e55;
+  border-radius: 0 6px 6px 0;
+}
+
+code {
+  font-family: 'Cascadia Code', 'Fira Code', 'Consolas', monospace;
+  font-size: 0.9em;
+  background: #0f3460;
+  border-radius: 3px;
+  padding: 0.1em 0.35em;
+}
+
+pre {
+  background: #0f3460;
+  border: 1px solid #1e4a8a;
+  border-radius: 6px;
+  padding: 0.85em 1.1em;
+  margin: 0.6em 0;
+  font-family: 'Cascadia Code', 'Fira Code', 'Consolas', monospace;
+  font-size: 0.9rem;
+  line-height: 1.6;
+  color: #c9d1d9;
+  overflow: visible;
+  white-space: pre-wrap;
+}
+
+.kw  { color: #ff79c6; }
+.ty  { color: #8be9fd; }
+.fn  { color: #50fa7b; }
+.str { color: #f1fa8c; }
+.cm  { color: #6272a4; font-style: italic; }
+.num { color: #bd93f9; }
+.eff { color: #ffb86c; }
+.op  { color: #ff79c6; }
+.ann { color: #6272a4; }
+
+table {
+  border-collapse: collapse;
+  width: 100%;
+  font-size: 0.95rem;
+  margin: 0.5em 0;
+}
+
+th {
+  background: #16213e;
+  color: #e94560;
+  padding: 0.45em 0.8em;
+  text-align: left;
+  border: 1px solid #1e4a8a;
+}
+
+td {
+  padding: 0.4em 0.8em;
+  border: 1px solid #1e4a8a;
+  color: #eaeaea;
+}
+
+tr:nth-child(even) td { background: #16213e44; }
+
+.two-col {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 2em;
+  width: 100%;
+}
+
+.three-col {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 1.5em;
+  width: 100%;
+}
+
+.counter {
+  position: fixed;
+  bottom: 12px;
+  right: 18px;
+  font-size: 0.72rem;
+  color: #3a3a5a;
+  font-variant-numeric: tabular-nums;
+  pointer-events: none;
+  font-family: 'Segoe UI', system-ui, sans-serif;
+}
+</style>
+</head>
+<body>
+
+<div class="deck" id="deck">
+
+  <!-- Slide 1: Title -->
+  <div class="slide title active">
+    <h1>A Gentle Introduction<br>to Effect Systems</h1>
+    <p class="subtitle">What side effects are, why they matter,<br>and how a compiler can track them</p>
+  </div>
+
+  <!-- Slide 2: What is a side effect? -->
+  <div class="slide">
+    <h2>What Is a Side Effect?</h2>
+    <div class="two-col">
+      <div>
+        <h3>Self-contained — no side effects</h3>
+        <pre><span class="kw">def</span> <span class="fn">add</span>(x: <span class="ty">Int32</span>, y: <span class="ty">Int32</span>): <span class="ty">Int32</span> =
+    x + y</pre>
+        <p>Takes two numbers, returns their sum. Nothing else in the program changes.</p>
+      </div>
+      <div>
+        <h3>Has a side effect</h3>
+        <pre><span class="kw">def</span> <span class="fn">greetAndAdd</span>(x: <span class="ty">Int32</span>, y: <span class="ty">Int32</span>): <span class="ty">Int32</span> \ <span class="eff">IO</span> =
+    <span class="fn">println</span>(<span class="str">"Adding ${x} and ${y}"</span>);
+    x + y</pre>
+        <p>Does the same arithmetic, but also <strong>prints to the screen</strong> — an interaction with the world outside the function.</p>
+        <p>The <code>\ IO</code> is how Flix marks that fact in the type.</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- Slide 3: Common side effects -->
+  <div class="slide">
+    <h2>Common Side Effects</h2>
+    <p style="margin-bottom:0.7em;">A side effect is anything a function does beyond returning a value:</p>
+    <table>
+      <tr><th>Side Effect</th><th>Example</th></tr>
+      <tr><td><strong>I/O</strong></td><td>Printing to the screen, reading from the keyboard</td></tr>
+      <tr><td><strong>File system</strong></td><td>Reading or writing files</td></tr>
+      <tr><td><strong>Network</strong></td><td>Fetching a URL, sending a message</td></tr>
+      <tr><td><strong>Randomness</strong></td><td>Rolling a dice, generating a UUID</td></tr>
+      <tr><td><strong>Exceptions</strong></td><td>Throwing an error that unwinds the call stack</td></tr>
+      <tr><td><strong>Mutable state</strong></td><td>Modifying a global variable or shared data structure</td></tr>
+    </table>
+  </div>
+
+  <!-- Slide 4: The problem with invisible effects -->
+  <div class="slide">
+    <h2>The Problem with Invisible Effects</h2>
+    <p>Most type signatures tell you what goes <strong>in</strong> and what comes <strong>out</strong>. They say nothing about what the function does to the world:</p>
+    <pre style="margin:0.8em 0; font-size:0.95rem;"><span class="cm">// Does this write to a database? Send an email? Throw? You cannot tell.</span>
+func processOrder(order Order) Result</pre>
+    <p style="margin-bottom:0.6em;">This has real consequences:</p>
+    <ul>
+      <li><strong>Testing is hard.</strong> You need to set up every external system the function might touch.</li>
+      <li><strong>Reasoning is hard.</strong> When a bug appears, you cannot tell which functions caused it without reading every body.</li>
+      <li><strong>Order matters in surprising ways.</strong> Two calls that look independent may share hidden state.</li>
+      <li><strong>Refactoring is risky.</strong> Moving a call can silently change behaviour.</li>
+    </ul>
+  </div>
+
+  <!-- Slide 5: Pure functions -->
+  <div class="slide">
+    <h2>Pure Functions: The Gold Standard</h2>
+    <blockquote>Given the same inputs, a pure function always returns the same output — and does nothing else.</blockquote>
+    <p><code>add(3, 4)</code> is always <code>7</code>, no matter when or how many times you call it. Nothing else happens.</p>
+    <p style="margin-top:0.8em; margin-bottom:0.3em;">Because pure functions are predictable:</p>
+    <ul>
+      <li><strong>Testing is trivial.</strong> Call with inputs, check output. No setup needed.</li>
+      <li><strong>Results can be cached.</strong> Same input always gives the same answer.</li>
+      <li><strong>Safe to parallelise.</strong> Two pure functions can never interfere with each other.</li>
+      <li><strong>Calls can be reordered.</strong> No hidden ordering dependencies.</li>
+    </ul>
+    <p style="margin-top:0.8em; color:#a0a0c0;">The challenge: most languages have no way to <em>guarantee</em> a function is pure. Nothing stops someone from accidentally adding a <code>println</code> inside it.</p>
+  </div>
+
+  <!-- Slide 6: Making effects visible -->
+  <div class="slide">
+    <h2>Making Effects Visible</h2>
+    <p>An effect system <strong>records effects in the type</strong> of a function. The compiler reads and enforces them.</p>
+    <pre style="margin:0.8em 0;"><span class="kw">def</span> <span class="fn">greet</span>(name: <span class="ty">String</span>): <span class="ty">Unit</span> \ <span class="eff">IO</span> =
+    <span class="fn">println</span>(<span class="str">"Hello ${name}!"</span>)
+
+<span class="ann">──────────────────────  ──────  ─────
+ parameter               return  effect
+                         type    annotation</span></pre>
+    <p>The <code>\ IO</code> is not a comment — it is part of the type. Omit it when the function is impure and the compiler rejects your code:</p>
+    <pre><span class="cm">// Does not compile — println requires IO effect</span>
+<span class="kw">def</span> <span class="fn">silentGreet</span>(name: <span class="ty">String</span>): <span class="ty">Unit</span> =
+    <span class="fn">println</span>(<span class="str">"Hello ${name}!"</span>)</pre>
+    <p><strong>If a function has no effect annotation, the compiler has verified it performs no side effects.</strong> Purity is a proven fact, not a convention.</p>
+  </div>
+
+  <!-- Slide 7: The effect set -->
+  <div class="slide">
+    <h2>The Effect Set</h2>
+    <p>Effects form a <strong>set</strong>. A function can have zero, one, or many:</p>
+    <pre><span class="cm">// No effects (pure) — annotation omitted</span>
+<span class="kw">def</span> <span class="fn">inc</span>(x: <span class="ty">Int32</span>): <span class="ty">Int32</span> = x + <span class="num">1</span>
+
+<span class="cm">// One effect</span>
+<span class="kw">def</span> <span class="fn">logValue</span>(x: <span class="ty">Int32</span>): <span class="ty">Unit</span> \ <span class="eff">IO</span> =
+    <span class="fn">println</span>(<span class="str">"Value: ${x}"</span>)
+
+<span class="cm">// Multiple effects — curly braces denote a set</span>
+<span class="kw">def</span> <span class="fn">fetchAndLog</span>(url: <span class="ty">String</span>): <span class="ty">String</span> \ {<span class="eff">IO</span>, <span class="eff">Net</span>} =
+    <span class="kw">let</span> response = Http.<span class="fn">get</span>(url);
+    <span class="fn">println</span>(<span class="str">"Got response"</span>);
+    response</pre>
+    <p>Think of the effect set as a <strong>list of permissions</strong>. An empty set means pure:</p>
+    <pre><span class="kw">def</span> <span class="fn">inc</span>(x: <span class="ty">Int32</span>): <span class="ty">Int32</span> \ { } = x + <span class="num">1</span>   <span class="cm">// explicitly pure</span>
+<span class="kw">def</span> <span class="fn">inc</span>(x: <span class="ty">Int32</span>): <span class="ty">Int32</span> = x + <span class="num">1</span>          <span class="cm">// same — preferred</span></pre>
+  </div>
+
+  <!-- Slide 8: Effects are contagious -->
+  <div class="slide">
+    <h2>Effects Are Contagious (In a Good Way)</h2>
+    <p>If you call an impure function, <strong>your function becomes impure too</strong>. Effects propagate upward through the call chain:</p>
+    <pre style="font-size:0.88rem;">main()              <span class="cm">-- calls sendReport → \ IO</span>
+  └─ sendReport()   <span class="cm">-- calls logToFile  → \ IO</span>
+       ├─ formatReport()   <span class="cm">-- pure, no effects</span>
+       └─ logToFile()      <span class="cm">-- writes a file   → \ IO</span></pre>
+    <p style="margin-top:0.8em;">This is not a burden — it is the feature. The signatures tell the whole story without reading any body:</p>
+    <pre><span class="kw">def</span> <span class="fn">processData</span>(data: <span class="ty">List</span>[<span class="ty">Int32</span>]): <span class="ty">List</span>[<span class="ty">Int32</span>]        <span class="cm">// purely transforms data</span>
+<span class="kw">def</span> <span class="fn">processAndSave</span>(data: <span class="ty">List</span>[<span class="ty">Int32</span>]): <span class="ty">Unit</span> \ <span class="eff">IO</span>        <span class="cm">// also writes somewhere</span></pre>
+  </div>
+
+  <!-- Slide 9: Effect polymorphism -->
+  <div class="slide">
+    <h2>Effect Polymorphism</h2>
+    <p>Should <code>List.map</code> be pure or impure? <strong>It depends on the function you pass.</strong></p>
+    <pre><span class="cm">// pure — just adds 1 to each element</span>
+<span class="ty">List</span>.<span class="fn">map</span>(x -> x + <span class="num">1</span>, myList)
+
+<span class="cm">// impure — prints each element</span>
+<span class="ty">List</span>.<span class="fn">map</span>(x -> { <span class="fn">println</span>(x); x }, myList)</pre>
+    <p>Flix handles this with an <em>effect variable</em> <code>ef</code> in the signature:</p>
+    <pre><span class="kw">def</span> <span class="fn">map</span>(f: a -> b \ <span class="eff">ef</span>, l: <span class="ty">List</span>[a]): <span class="ty">List</span>[b] \ <span class="eff">ef</span></pre>
+    <p style="margin:0.5em 0 0.4em;">"<code>map</code> has whatever effect <code>f</code> has." Filled in automatically at each call site:</p>
+    <table>
+      <tr><th>Function passed</th><th>Effect of <code>f</code></th><th>Effect of <code>map</code></th></tr>
+      <tr><td><code>x -> x + 1</code></td><td><code>{ }</code> (pure)</td><td><code>{ }</code> (pure)</td></tr>
+      <tr><td><code>x -> { println(x); x }</code></td><td><code>IO</code></td><td><code>IO</code></td></tr>
+    </table>
+    <p style="margin-top:0.5em; color:#a0a0c0;">One implementation of <code>map</code> works correctly for both cases. No pure/impure variants needed.</p>
+  </div>
+
+  <!-- Slide 10: User-defined effects -->
+  <div class="slide">
+    <h2>User-Defined Effects</h2>
+    <p>Flix lets you define your own effects. The key insight:</p>
+    <blockquote>Define <em>what</em> an effect is separately from <em>how</em> it is handled.</blockquote>
+    <div class="two-col">
+      <div>
+        <h3>Declare the effect</h3>
+        <pre><span class="kw">eff</span> <span class="ty">Ask</span> {
+    <span class="kw">def</span> <span class="fn">ask</span>(prompt: <span class="ty">String</span>): <span class="ty">String</span>
+}</pre>
+        <p>No implementation here — just the declaration that this capability exists.</p>
+      </div>
+      <div>
+        <h3>Use the effect</h3>
+        <pre><span class="kw">def</span> <span class="fn">greetUser</span>(): <span class="ty">Unit</span> \ {<span class="eff">Ask</span>, <span class="eff">IO</span>} =
+    <span class="kw">let</span> name = <span class="ty">Ask</span>.<span class="fn">ask</span>(<span class="str">"What is your name?"</span>);
+    <span class="fn">println</span>(<span class="str">"Hello, ${name}!"</span>)</pre>
+        <p><code>greetUser</code> does not know whether <code>Ask.ask</code> reads the terminal, returns a test value, or reads a config. That decision is made by a <strong>handler</strong>.</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- Slide 11: Handlers -->
+  <div class="slide">
+    <h2>Handlers: Giving Effects Their Meaning</h2>
+    <div class="two-col">
+      <div>
+        <pre style="font-size:0.85rem;"><span class="kw">def</span> <span class="fn">main</span>(): <span class="ty">Unit</span> \ <span class="eff">IO</span> =
+    <span class="kw">run</span> {
+        <span class="fn">greetUser</span>()
+    } <span class="kw">with handler</span> <span class="ty">Ask</span> {
+        <span class="kw">def</span> <span class="fn">ask</span>(prompt, resume) =
+            <span class="fn">println</span>(prompt);
+            <span class="kw">let</span> answer = <span class="fn">readLine</span>();
+            <span class="fn">resume</span>(answer)
+    }</pre>
+      </div>
+      <div>
+        <h3>What happens at runtime</h3>
+        <ol style="list-style:decimal; padding-left:1.2em; color:#eaeaea; line-height:1.8; font-size:0.95rem;">
+          <li><code>greetUser</code> calls <code>Ask.ask("What is your name?")</code></li>
+          <li>The handler intercepts the call</li>
+          <li>The handler prints the prompt</li>
+          <li>The handler reads input — say, <code>"Alice"</code></li>
+          <li>The handler calls <code>resume("Alice")</code></li>
+          <li><code>greetUser</code> continues with <code>name = "Alice"</code></li>
+          <li><code>greetUser</code> prints <code>"Hello, Alice!"</code></li>
+        </ol>
+        <p style="margin-top:0.6em; color:#a0a0c0;">After the handler block, the <code>Ask</code> effect is gone. <code>main</code> has <code>\ IO</code> only.</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- Slide 12: Why separate effects from handlers? -->
+  <div class="slide">
+    <h2>Why Separate Effects from Handlers?</h2>
+    <p><code>greetUser</code> is written once. Swap the handler to change the behaviour:</p>
+    <div class="two-col">
+      <div>
+        <h3>Production — reads from terminal</h3>
+        <pre style="font-size:0.85rem;"><span class="kw">run</span> { <span class="fn">greetUser</span>() }
+  <span class="kw">with handler</span> <span class="ty">Ask</span> {
+    <span class="kw">def</span> <span class="fn">ask</span>(prompt, resume) =
+        <span class="fn">println</span>(prompt);
+        <span class="fn">resume</span>(<span class="fn">readLine</span>())
+}</pre>
+      </div>
+      <div>
+        <h3>Tests — no terminal needed</h3>
+        <pre style="font-size:0.85rem;"><span class="kw">run</span> { <span class="fn">greetUser</span>() }
+  <span class="kw">with handler</span> <span class="ty">Ask</span> {
+    <span class="kw">def</span> <span class="fn">ask</span>(_prompt, resume) =
+        <span class="fn">resume</span>(<span class="str">"Alice"</span>)
+}</pre>
+      </div>
+    </div>
+    <p style="margin-top:0.8em;">This is <strong>dependency injection</strong>, enforced by the type system — without any framework, interface, or annotation beyond the effect declaration itself.</p>
+  </div>
+
+  <!-- Slide 13: Non-resumable effects -->
+  <div class="slide">
+    <h2>Non-Resumable Effects: Exceptions</h2>
+    <p>A <code>Void</code> return type means the handler <strong>cannot resume</strong> — like an exception:</p>
+    <div class="two-col">
+      <div>
+        <pre style="font-size:0.85rem;"><span class="kw">eff</span> <span class="ty">DivByZero</span> {
+    <span class="kw">def</span> <span class="fn">divByZero</span>(): <span class="ty">Void</span>
+}
+
+<span class="kw">def</span> <span class="fn">divide</span>(x: <span class="ty">Int32</span>, y: <span class="ty">Int32</span>):
+    <span class="ty">Int32</span> \ <span class="eff">DivByZero</span> =
+    <span class="kw">if</span> (y == <span class="num">0</span>) <span class="ty">DivByZero</span>.<span class="fn">divByZero</span>()
+    <span class="kw">else</span> x / y</pre>
+      </div>
+      <div>
+        <pre style="font-size:0.85rem;"><span class="kw">def</span> <span class="fn">main</span>(): <span class="ty">Unit</span> \ <span class="eff">IO</span> =
+    <span class="kw">run</span> {
+        <span class="fn">println</span>(<span class="fn">divide</span>(<span class="num">10</span>, <span class="num">2</span>));  <span class="cm">// 5</span>
+        <span class="fn">println</span>(<span class="fn">divide</span>(<span class="num">10</span>, <span class="num">0</span>))   <span class="cm">// raises</span>
+    } <span class="kw">with handler</span> <span class="ty">DivByZero</span> {
+        <span class="kw">def</span> <span class="fn">divByZero</span>(_resume) =
+            <span class="fn">println</span>(<span class="str">"Error: div by zero"</span>)
+    }</pre>
+      </div>
+    </div>
+    <p style="margin-top:0.6em;"><code>Void</code> has no values, so <code>_resume</code> cannot be called. When <code>divide(10, 0)</code> raises, the handler intercepts and the second <code>println</code> never runs. This is a checked exception — composable, first-class, tracked by the type system.</p>
+  </div>
+
+  <!-- Slide 14: Summary -->
+  <div class="slide">
+    <h2>Summary</h2>
+    <table>
+      <tr><th>Concept</th><th>In one sentence</th></tr>
+      <tr><td><strong>Side effect</strong></td><td>Anything a function does beyond returning a value</td></tr>
+      <tr><td><strong>Pure function</strong></td><td>A function with no side effects — same inputs always give the same output</td></tr>
+      <tr><td><strong>Effect annotation</strong></td><td><code>\ IO</code> — declares effects as part of the function type, enforced by the compiler</td></tr>
+      <tr><td><strong>Effect set</strong></td><td><code>\ {IO, Net}</code> — a set of permissions; empty set means pure</td></tr>
+      <tr><td><strong>Effect polymorphism</strong></td><td>Higher-order functions inherit the effects of their arguments automatically</td></tr>
+      <tr><td><strong>User-defined effect</strong></td><td><code>eff Name { def op(): T }</code> — declare a capability without implementing it</td></tr>
+      <tr><td><strong>Handler</strong></td><td><code>run { } with handler Name { }</code> — give an effect its implementation</td></tr>
+      <tr><td><strong>Non-resumable effect</strong></td><td><code>Void</code> return — a typed, composable exception</td></tr>
+    </table>
+  </div>
+
+  <!-- Slide 15: Why this matters -->
+  <div class="slide">
+    <h2>Why This Matters</h2>
+    <blockquote>"What does this function do to the world?"</blockquote>
+    <p>In most languages that question has no reliable answer without reading the implementation. In Flix, the answer is always in the type signature — and the compiler enforces it.</p>
+    <ul style="margin-top:0.8em;">
+      <li><strong>Navigation is easier.</strong> Scan signatures to find what touches the outside world.</li>
+      <li><strong>Testing is simpler.</strong> Pure functions need no mocking, no test doubles, no setup.</li>
+      <li><strong>Refactoring is safer.</strong> The compiler tells you when you accidentally add an effect.</li>
+      <li><strong>Logic stays reusable.</strong> Write <code>greetUser</code> once; swap the handler for production, testing, or any other context.</li>
+    </ul>
+    <p style="margin-top:0.9em; color:#a0a0c0;">Effect systems require you to think about what your functions do and say so in their types. That discipline pays off quickly — code that was previously a guess becomes code you can reason about with confidence.</p>
+  </div>
+
+</div>
+
+<div class="counter" id="counter">1 / 15</div>
+
+<script>
+const slides = Array.from(document.querySelectorAll('.slide'));
+let current = 0;
+
+function show(n) {
+  if (slides.length === 0) return;
+  slides[current].classList.remove('active');
+  current = Math.max(0, Math.min(n, slides.length - 1));
+  slides[current].classList.add('active');
+  document.getElementById('counter').textContent = `${current + 1} / ${slides.length}`;
+}
+
+document.addEventListener('keydown', e => {
+  const navKeys = ['ArrowRight', 'ArrowLeft', ' ', 'Home', 'End'];
+  if (!navKeys.includes(e.key)) return;
+  e.preventDefault();
+  if (e.key === 'ArrowRight' || e.key === ' ') show(current + 1);
+  if (e.key === 'ArrowLeft')                    show(current - 1);
+  if (e.key === 'Home')                         show(0);
+  if (e.key === 'End')                          show(slides.length - 1);
+});
+
+let touchX = 0;
+document.addEventListener('touchstart', e => touchX = e.touches[0].clientX);
+document.addEventListener('touchend', e => {
+  const dx = e.changedTouches[0].clientX - touchX;
+  if (Math.abs(dx) > 50) show(current + (dx < 0 ? 1 : -1));
+});
+
+if (slides.length > 0) {
+  document.getElementById('counter').textContent = `1 / ${slides.length}`;
+}
+</script>
+</body>
+</html>
