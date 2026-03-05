@@ -208,6 +208,104 @@ recomputing it, `Lazy[T]` is exactly right.
 ---
 
 ## 4. Lazy Data Structures: `DelayList`
+
+`Lazy[T]` delays a single value. That is already useful, but the real power of laziness emerges
+when you build it into a data structure. Once a list node can hold a lazy tail, something
+remarkable becomes possible: a list that never ends.
+
+### The key insight
+
+A normal list node holds a head value and an already-computed tail. To represent ten thousand
+elements, you must have ten thousand nodes sitting in memory right now.
+
+A lazy list node holds a head value and a *not-yet-computed* tail. The tail is wrapped in a
+`Lazy`, so it does not exist until you ask for it. To represent ten thousand elements you only
+need as many nodes as you have actually requested — because the rest have not been computed yet.
+
+Push this idea to its limit and you get a list that is *conceptually infinite*: there is always
+a next element, but it is only materialised at the moment you reach for it.
+
+### How `DelayList` is built (conceptual)
+
+Flix's standard library provides a `DelayList` type. Here is the shape of the idea — this is
+**illustrative only**, not code to compile:
+
+```
+// How DelayList works internally (conceptual)
+enum DelayList[a] {
+    case DNil
+    case DCons(a, Lazy[DelayList[a]])
+}
+```
+
+`DNil` is the empty list — the end. `DCons` holds a head element of type `a` and a lazy tail
+that is itself another `DelayList[a]`. Because the tail is wrapped in `Lazy`, it is not computed
+until something forces it. Each node knows how to produce the *next* node, but does not produce
+it until asked.
+
+### Using `DelayList` in practice
+
+The API provides the familiar higher-order functions — `map`, `filter`, `take` — but they all
+operate lazily. Here is a complete example:
+
+```flix
+def main(): Unit \ IO =
+    let naturals = DelayList.from(1);           // 1, 2, 3, 4, ... (never ends)
+    let evens    = DelayList.map(x -> x * 2, naturals);
+    let first10  = DelayList.take(10, evens);
+    println(DelayList.toList(first10))
+```
+
+### What actually happens, step by step
+
+- `DelayList.from(1)` does **not** generate an infinite list. It creates one node: head = `1`,
+  tail = `lazy (from(2))`. The tail expression is wrapped, not evaluated. The list beyond the
+  first element does not yet exist.
+
+- `DelayList.map(x -> x * 2, naturals)` creates a new lazy list that knows how to double each
+  element. Still nothing is computed. The doubling function has not been applied to any number.
+
+- `DelayList.take(10, evens)` is where evaluation actually begins. It forces the first node,
+  gets the head, forces the next node to get its head, and so on — ten times. At no point are
+  more than ten elements evaluated.
+
+- `DelayList.toList(first10)` converts the ten forced elements into an ordinary `List` for
+  printing.
+
+### The lazy chain
+
+Here is what the structure looks like in memory as `take` does its work:
+
+```
+DCons(1, lazy ──► DCons(2, lazy ──► DCons(3, lazy ──► ...)))
+                  ↑                  ↑
+              not yet computed    not yet computed
+```
+
+Each node points to the next, but the arrow is a deferred computation — not an actual node —
+until `take` forces it. The `...` at the end is not a placeholder for stored data; it is the
+*recipe* for the next node, waiting to be invoked.
+
+### Filtering a lazy list
+
+`DelayList.filter` works the same way. You can ask for only the odd numbers:
+
+```flix
+let odds = DelayList.filter(x -> x mod 2 != 0, DelayList.from(1));
+println(DelayList.toList(DelayList.take(5, odds)))
+// Output: 1 :: 3 :: 5 :: 7 :: 9 :: Nil
+```
+
+The filter predicate is applied element by element, on demand. Elements that fail the test are
+skipped without ever materialising in a result structure. You can filter an infinite list and
+only pay for the elements you actually consume.
+
+This is the promise of lazy data structures in one sentence: **you describe a potentially
+unbounded computation, and the runtime computes exactly as much of it as you ask for — no
+more.**
+
+---
+
 ## 5. The Reveal: Effect Handlers Were Delaying All Along
 ## 6. Controlling the Delay
 ## 7. Real Problems That Need Delay
