@@ -410,6 +410,3 @@ control of this.
 ## 6. Controlling the Delay
 ## 7. Real Problems That Need Delay
 ## 8. Summary
-
-## 7. Real Problems That Need Delay
-## 8. Summary
