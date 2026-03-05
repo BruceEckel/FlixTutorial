@@ -638,7 +638,7 @@ possible.
 | Mechanism | Syntax | Evaluates once? | Can have effects? | Power |
 |---|---|---|---|---|
 | Thunk | `() -> expr` | No | Yes | Low |
-| `Lazy[T]` | `lazy expr` / `force x` | Yes | No (pure only) | Medium |
+| `Lazy[T]` | `lazy (expr)` / `force x` | Yes | No (pure only) | Medium |
 | Effect handler | `run { } with handler` | Configurable | Yes | High |
 
 Delay is a spectrum. Thunks are the simplest form: a plain function that holds an expression until someone calls it, with no restrictions and no memory. `Lazy[T]` adds memoization — the expression runs at most once, but only for pure values; the compiler enforces this. Effect handlers are the most powerful form: when an effect operation fires, the entire remaining computation is suspended and handed to the handler as `resume`, which can call it zero, once, or many times. Flix gives you all three, and the type system makes it clear which mechanism is in play at any point.
