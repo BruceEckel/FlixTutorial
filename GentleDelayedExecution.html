@@ -392,7 +392,23 @@ tr:nth-child(even) td { background: #16213e44; }
     <p style="margin-top:0.7em; color:#a0a0c0;">Effect handlers are the most powerful form — the delay covers not one expression but the entire remaining computation, all the way to the end of the <code>run</code> block.</p>
   </div>
 
-  <!-- Slide 11: Controlling the Delay — Overview -->
+  <!-- Slide 11: Call and Return mental model -->
+  <div class="slide">
+    <h2>Another Mental Model: Call and Return</h2>
+    <p>There is a second way to think about effect handlers that many programmers find even more intuitive:</p>
+    <pre style="margin:0.7em 0;"><span class="ty">Fetch</span>.<span class="fn">fetch</span>(url)      <span class="cm">← looks like a call into the handler</span>
+<span class="fn">resume</span>(response)     <span class="cm">← looks like the handler returning to the caller</span></pre>
+    <p>An effect operation really is a kind of call — just inside-out. In a normal function call, the caller suspends and waits for the callee to return. Here the <em>call site</em> suspends and waits for the <em>handler</em> to resume it. The roles are flipped, but the shape is familiar.</p>
+    <p style="margin-top:0.8em;">The analogy breaks in exactly one place — and that break is the whole point:</p>
+    <table style="margin-top:0.6em;">
+      <tr><th></th><th>Normal function call</th><th>Effect handler</th></tr>
+      <tr><td>Must return?</td><td>Yes — exactly once</td><td>No — <code>resume</code> is optional</td></tr>
+      <tr><td>Can return multiple times?</td><td>No</td><td>Yes — call <code>resume</code> twice, run twice</td></tr>
+    </table>
+    <p style="margin-top:0.7em;">So the full mental model: <strong>effect operation = call into the handler, <code>resume</code> = return to the call site</strong> — with the one caveat that "return" is now optional and repeatable.</p>
+  </div>
+
+  <!-- Slide 12: Controlling the Delay — Overview -->
   <div class="slide">
     <h2>Controlling the Delay</h2>
     <p>The handler receives <code>resume</code> — the suspended computation — and decides what to do with it:</p>
@@ -405,7 +421,7 @@ tr:nth-child(even) td { background: #16213e44; }
     <p style="margin-top:0.4em;">The pattern is always the same. Only the handler's choice changes.</p>
   </div>
 
-  <!-- Slide 12: Pattern 1 — Immediate resume -->
+  <!-- Slide 13: Pattern 1 — Immediate resume -->
   <div class="slide">
     <h2>Pattern 1 — Immediate Resume</h2>
     <p>The most common pattern: handle the effect, then hand control back immediately.</p>
@@ -425,7 +441,7 @@ tr:nth-child(even) td { background: #16213e44; }
     <p>The handler prints the greeting, then calls <code>resume()</code>. The program runs in a straight line. Both calls fire one after the other. Nothing surprising happens.</p>
   </div>
 
-  <!-- Slide 13: Pattern 2 — Abort -->
+  <!-- Slide 14: Pattern 2 — Abort -->
   <div class="slide">
     <h2>Pattern 2 — Never Resume (Abort)</h2>
     <p>A <code>Void</code> return type signals that the computation <strong>cannot resume</strong>. The handler receives <code>_resume</code> — but intentionally never calls it.</p>
@@ -451,7 +467,7 @@ tr:nth-child(even) td { background: #16213e44; }
     <p style="margin-top:0.5em;">This is a typed, composable exception — no <code>throw</code>, no <code>try</code>, no <code>catch</code>. Just an effect whose handler chooses not to resume.</p>
   </div>
 
-  <!-- Slide 14: Pattern 3 — Multiple resume -->
+  <!-- Slide 15: Pattern 3 — Multiple resume -->
   <div class="slide">
     <h2>Pattern 3 — Call Resume Multiple Times (Fork)</h2>
     <div class="two-col">
@@ -485,7 +501,7 @@ tr:nth-child(even) td { background: #16213e44; }
     </div>
   </div>
 
-  <!-- Slide 15: Real Problem 1 — Infinite sequences -->
+  <!-- Slide 16: Real Problem 1 — Infinite sequences -->
   <div class="slide">
     <h2>Real Problem 1: Infinite Sequences</h2>
     <p>You want the first five prime numbers. The naive approach — generate all primes first — either runs forever or requires guessing an upper bound. Lazy lists make the problem disappear:</p>
@@ -500,7 +516,7 @@ tr:nth-child(even) td { background: #16213e44; }
     <p><code>nats</code> is a description, not a list. <code>primes</code> is also a description. Nothing is computed until <code>take(5, ...)</code> forces exactly five elements — one at a time, stopping the moment five pass the test.</p>
   </div>
 
-  <!-- Slide 16: Real Problem 2 — Retry logic -->
+  <!-- Slide 17: Real Problem 2 — Retry logic -->
   <div class="slide">
     <h2>Real Problem 2: Retry Logic</h2>
     <p>Business logic that calls an external service — retried up to N times, without a single change to the business logic itself:</p>
@@ -536,7 +552,7 @@ tr:nth-child(even) td { background: #16213e44; }
     <p style="margin-top:0.5em;">The handler does <em>not</em> call <code>_resume</code> — it abandons the current attempt and starts fresh. Swap in a different handler and <code>reportWeather</code> never changes.</p>
   </div>
 
-  <!-- Slide 17: Summary -->
+  <!-- Slide 18: Summary -->
   <div class="slide">
     <h2>Summary</h2>
     <table style="margin:0.6em 0;">
@@ -551,7 +567,7 @@ tr:nth-child(even) td { background: #16213e44; }
 
 </div>
 
-<div class="counter" id="counter">1 / 17</div>
+<div class="counter" id="counter">1 / 18</div>
 
 <script>
 const slides = Array.from(document.querySelectorAll('.slide'));

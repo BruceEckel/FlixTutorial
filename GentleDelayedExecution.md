@@ -405,6 +405,38 @@ Thunks can only be called. `resume` can be called, ignored, stored, or duplicate
 possibilities open up considerably. Section 6 explores what you can do when you take deliberate
 control of this.
 
+### Another mental model: call and return
+
+There is a second way to think about the same mechanism that many programmers find even more
+intuitive.
+
+When an effect operation fires, it *looks* like a function call into the handler. When the
+handler calls `resume(result)`, it *looks* like returning a value back to the call site:
+
+```
+Fetch.fetch(url)    ← looks like a call into the handler
+resume(response)    ← looks like the handler returning to the caller
+```
+
+This is not a coincidence. An effect operation really is a kind of call — just inside-out. In a
+normal function call, the caller suspends and waits for the callee to return. Here the *call
+site* suspends and waits for the *handler* to resume it. The roles are flipped, but the shape
+is familiar.
+
+The analogy breaks in exactly one place — and that break is the whole point:
+
+| | Normal function call | Effect handler |
+|---|---|---|
+| Must return? | Yes, exactly once | No — `resume` is optional |
+| Can return multiple times? | No | Yes — call `resume` twice, run twice |
+
+A normal function *must* return exactly once. `resume` is a value the handler can do anything
+with: ignore it (abort), call it once (normal flow), or call it ten times (fork). That is what
+makes handlers strictly more powerful than function calls.
+
+So the full mental model is: **effect operation = call into the handler, `resume` = return to
+the call site** — with the one caveat that "return" is now optional and repeatable.
+
 ---
 
 ## 6. Controlling the Delay
