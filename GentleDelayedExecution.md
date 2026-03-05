@@ -334,7 +334,7 @@ def main(): Unit \ IO =
     } with handler Ask {
         def ask(prompt, resume) =
             println(prompt);
-            let answer = readLine();
+            let answer = Console.readln();
             resume(answer)
     }
 ```
@@ -600,7 +600,7 @@ def withRetry(attemptsLeft: Int32, action: Unit -> Unit \ {Fetch, IO}): Unit \ I
         run {
             action()
         } with handler Fetch {
-            def fetch(url, resume) =
+            def fetch(url, _resume) =
                 // In real code: try the actual network call and detect failure.
                 // Here we simulate a failure on every attempt to show the retry mechanism.
                 println("Attempt failed. Retries left: ${attemptsLeft - 1}");
