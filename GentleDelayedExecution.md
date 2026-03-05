@@ -306,6 +306,110 @@ more.**
 ---
 
 ## 5. The Reveal: Effect Handlers Were Delaying All Along
+
+We have now seen two mechanisms for delaying execution. A thunk wraps an expression in a
+`() -> a` function — nothing runs until you call it. `Lazy[T]` does the same for pure
+expressions, adding memoization so the work happens at most once. Both are about taking a single
+expression and postponing it.
+
+There is a third mechanism. You have already used it — in the previous chapter. And it turns out
+it was delaying execution all along, in a way that is worth making fully explicit.
+
+### Recalling the `Ask` handler
+
+Here is the core example from the previous chapter, reproduced so you do not need to flip back:
+
+```flix
+eff Ask {
+    def ask(prompt: String): String
+}
+
+def greetUser(): Unit \ {Ask, IO} =
+    let name = Ask.ask("What is your name?");
+    println("Hello, ${name}!")
+
+def main(): Unit \ IO =
+    run {
+        greetUser()
+    } with handler Ask {
+        def ask(prompt, resume) =
+            println(prompt);
+            let answer = readLine();
+            resume(answer)
+    }
+```
+
+Read this carefully. `greetUser` calls `Ask.ask(...)` and then, on the very next line, uses the
+result to call `println`. There are two lines of code after the call site. They do not run
+immediately. They wait.
+
+### The execution flow
+
+```
+1. greetUser() calls Ask.ask("What is your name?")
+2. Execution PAUSES — the rest of greetUser() is suspended
+3. The handler runs: prints the prompt, reads a line
+4. The handler calls resume("Alice")
+5. greetUser() RESUMES with name = "Alice"
+6. println("Hello, Alice!") runs
+```
+
+Step 2 is the key. When `Ask.ask(...)` fires, `greetUser` does not finish. It stops. The lines
+below that call — `let name = ...` completing, then `println("Hello, ${name}!")` — are packaged
+up and handed to the handler. They sit there, waiting, until the handler decides what to do with
+them.
+
+### The insight
+
+> `resume` is a thunk. When `Ask.ask(...)` fires, the rest of `greetUser()` — every line after
+> that call — is packaged up as a `Unit -> a` function and handed to the handler as `resume`.
+> The handler holds the rest of the program. It can call `resume` whenever it wants.
+
+This is the same pattern as Section 2 — a sealed envelope containing instructions — but the
+envelope is not something you created by hand. Flix creates it automatically the moment an
+effect operation fires. The handler receives it as the `resume` argument.
+
+The rest of the program is the thunk. The handler is the one who decides whether to open it.
+
+### Three mechanisms side by side
+
+| Mechanism | What is delayed | Who holds the delay |
+|---|---|---|
+| Thunk `() -> a` | A single expression | You (the caller) |
+| `Lazy[T]` | A single pure expression | The runtime |
+| Effect handler | The rest of the program | The handler |
+
+The first two columns grow in scale from top to bottom. A thunk delays one expression. `Lazy[T]`
+delays one expression with a memory guarantee. An effect handler delays not one expression but
+*everything that comes after the effect call* — the entire remaining computation, all the way
+to the end of the `run` block.
+
+### Why this is the most powerful form of delay
+
+A thunk is a value. You hold it, you call it, and it produces a result. That is the full extent
+of what you can do.
+
+`resume` is also a value — a function — but what it represents is more profound. It is the
+continuation of the program. Calling `resume("Alice")` does not just evaluate a small expression;
+it picks up an entire suspended computation and runs it forward.
+
+Because `resume` is just a function, the handler can do anything with it:
+
+- **Call it once** — normal execution, the program continues as expected.
+- **Never call it** — the computation is aborted. This is how non-resumable effects work, as in
+  the `DivByZero` example from the previous chapter.
+- **Call it multiple times** — the suspended computation runs multiple times, each time from the
+  same point. This is how you get forking, backtracking, and non-determinism.
+
+Thunks can only be called. `resume` can be called, ignored, stored, or duplicated. The
+possibilities open up considerably. Section 6 explores what you can do when you take deliberate
+control of this.
+
+---
+
 ## 6. Controlling the Delay
+## 7. Real Problems That Need Delay
+## 8. Summary
+
 ## 7. Real Problems That Need Delay
 ## 8. Summary
