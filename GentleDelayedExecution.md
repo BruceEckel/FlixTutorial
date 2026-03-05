@@ -645,5 +645,5 @@ Delay is a spectrum. Thunks are the simplest form: a plain function that holds a
 
 ---
 
-*Next: [The Full Tutorial](tutorial.md) — a complete walkthrough of Flix covering types, pattern
+*Next: [Flix Cheat Sheet](FlixCheatSheet.md) — a complete reference covering types, pattern
 matching, traits, regions, Datalog, and more.*
