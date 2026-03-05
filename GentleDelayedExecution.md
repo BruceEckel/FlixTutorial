@@ -253,7 +253,7 @@ def main(): Unit \ IO =
     let naturals = DelayList.from(1);           // 1, 2, 3, 4, ... (never ends)
     let evens    = DelayList.map(x -> x * 2, naturals);
     let first10  = DelayList.take(10, evens);
-    println(DelayList.toList(first10))
+    println(first10)
 ```
 
 ### What actually happens, step by step
@@ -269,8 +269,7 @@ def main(): Unit \ IO =
   gets the head, forces the next node to get its head, and so on — ten times. At no point are
   more than ten elements evaluated.
 
-- `DelayList.toList(first10)` converts the ten forced elements into an ordinary `List` for
-  printing.
+- The final result `first10` is already an ordinary `List[Int32]` — `take` returns a plain list, not a lazy one. `println` prints it directly.
 
 ### The lazy chain
 
@@ -292,7 +291,7 @@ until `take` forces it. The `...` at the end is not a placeholder for stored dat
 
 ```flix
 let odds = DelayList.filter(x -> x mod 2 != 0, DelayList.from(1));
-println(DelayList.toList(DelayList.take(5, odds)))
+println(DelayList.take(5, odds))
 // Output: 1 :: 3 :: 5 :: 7 :: 9 :: Nil
 ```
 
